@@ -1,0 +1,122 @@
+# Example Project Configuration
+# Copy this to start a new project
+
+project:
+  id: example-project
+  name: Example Project
+  type: new
+  description: A sample project configuration
+  created: "2025-01-13"
+  status: active
+  stage: ideation
+
+tech_stack:
+  frontend:
+    - React 19
+    - TypeScript
+    - Vite
+  backend:
+    - Node.js 20
+    - Express
+    - TypeScript
+  database:
+    - PostgreSQL
+  validation:
+    - Zod
+  testing:
+    - Playwright
+  deployment:
+    - Google Cloud Run
+
+# ════════════════════════════════════════════════════════════
+# REUSABLE SERVICES
+# ════════════════════════════════════════════════════════════
+# Specify which Tekyz services this project uses.
+# The architect will integrate these instead of building custom.
+
+services:
+  # Authentication - use Tekyz auth-service
+  auth-service:
+    enabled: true
+    features:
+      - google-oauth
+      - email-password
+    config:
+      allowed_domains: []  # Empty = allow all
+      session_duration: "7d"
+  
+  # Role-based access control
+  rbac-service:
+    enabled: true
+    custom_roles:
+      - name: project_admin
+        permissions: ["projects:*", "users:read"]
+      - name: member
+        permissions: ["projects:read", "tasks:*"]
+  
+  # Audit logging
+  audit-service:
+    enabled: true
+    events_to_log:
+      - user.login
+      - user.logout
+      - record.created
+      - record.updated
+      - record.deleted
+      - admin.login_as
+  
+  # Admin console (includes login-as)
+  admin-service:
+    enabled: true
+    features:
+      - user-list
+      - login-as
+      - dashboard
+  
+  # File uploads
+  file-service:
+    enabled: false  # Enable if project needs file uploads
+  
+  # Notifications
+  notification-service:
+    enabled: false  # Enable if project needs email/push
+
+# ════════════════════════════════════════════════════════════
+# DESIGN TOKENS
+# ════════════════════════════════════════════════════════════
+# Project-specific UI customization.
+# These override the default Tekyz design system tokens.
+
+design_tokens:
+  colors:
+    primary:
+      default: "#2563eb"    # Blue - change to match brand
+      hover: "#1d4ed8"
+      light: "#dbeafe"
+    secondary:
+      default: "#64748b"
+  
+  typography:
+    font_family:
+      sans: "Inter, system-ui, sans-serif"
+  
+  # Optional: Additional custom tokens
+  # spacing: {}
+  # borders: {}
+  # shadows: {}
+
+# ════════════════════════════════════════════════════════════
+# STANDARD UI PATTERNS
+# ════════════════════════════════════════════════════════════
+# Which standard patterns this project uses.
+# These guide the UI/UX designer.
+
+ui_patterns:
+  layout: admin_layout           # sidebar + top nav + main content
+  crud_style: list_detail        # list + slide-out panel
+  navigation: sidebar_nav        # collapsible sidebar
+  data_display: data_grid        # sortable, filterable tables
+
+features: []
+
+history: []

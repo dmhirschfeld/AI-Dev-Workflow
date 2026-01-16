@@ -1,0 +1,619 @@
+# ════════════════════════════════════════════════════════════
+# TEKYZ UI/UX DESIGN SYSTEM
+# ════════════════════════════════════════════════════════════
+#
+# Standard UI components and patterns used across Tekyz projects.
+# Projects can customize via design tokens while keeping consistent UX.
+#
+# Structure:
+#   - Design Tokens (customizable per project)
+#   - Component Library (shared components)
+#   - Layout Patterns (standard page layouts)
+#   - Interaction Patterns (consistent behaviors)
+#
+# ════════════════════════════════════════════════════════════
+
+design_system_version: "1.0"
+last_updated: "2025-01-15"
+
+# ════════════════════════════════════════════════════════════
+# DESIGN TOKENS (Project-Level Customization)
+# ════════════════════════════════════════════════════════════
+
+tokens:
+  # These are the customization points for each project
+  # Projects override these in their project.yaml
+  
+  colors:
+    # Brand colors - customized per project
+    primary:
+      default: "#2563eb"       # Blue 600
+      hover: "#1d4ed8"         # Blue 700
+      light: "#dbeafe"         # Blue 100
+      dark: "#1e40af"          # Blue 800
+    
+    secondary:
+      default: "#64748b"       # Slate 500
+      hover: "#475569"         # Slate 600
+      light: "#f1f5f9"         # Slate 100
+    
+    # Semantic colors - usually consistent
+    success:
+      default: "#16a34a"       # Green 600
+      light: "#dcfce7"         # Green 100
+    
+    warning:
+      default: "#d97706"       # Amber 600
+      light: "#fef3c7"         # Amber 100
+    
+    error:
+      default: "#dc2626"       # Red 600
+      light: "#fee2e2"         # Red 100
+    
+    # Neutral palette - rarely customized
+    neutral:
+      50: "#f8fafc"
+      100: "#f1f5f9"
+      200: "#e2e8f0"
+      300: "#cbd5e1"
+      400: "#94a3b8"
+      500: "#64748b"
+      600: "#475569"
+      700: "#334155"
+      800: "#1e293b"
+      900: "#0f172a"
+  
+  typography:
+    font_family:
+      sans: "Inter, system-ui, sans-serif"
+      mono: "JetBrains Mono, monospace"
+    
+    font_size:
+      xs: "0.75rem"      # 12px
+      sm: "0.875rem"     # 14px
+      base: "1rem"       # 16px
+      lg: "1.125rem"     # 18px
+      xl: "1.25rem"      # 20px
+      2xl: "1.5rem"      # 24px
+      3xl: "1.875rem"    # 30px
+      4xl: "2.25rem"     # 36px
+    
+    font_weight:
+      normal: 400
+      medium: 500
+      semibold: 600
+      bold: 700
+    
+    line_height:
+      tight: 1.25
+      normal: 1.5
+      relaxed: 1.75
+  
+  spacing:
+    # 4px base unit
+    0: "0"
+    1: "0.25rem"     # 4px
+    2: "0.5rem"      # 8px
+    3: "0.75rem"     # 12px
+    4: "1rem"        # 16px
+    5: "1.25rem"     # 20px
+    6: "1.5rem"      # 24px
+    8: "2rem"        # 32px
+    10: "2.5rem"     # 40px
+    12: "3rem"       # 48px
+    16: "4rem"       # 64px
+  
+  borders:
+    radius:
+      none: "0"
+      sm: "0.125rem"   # 2px
+      default: "0.25rem"  # 4px
+      md: "0.375rem"   # 6px
+      lg: "0.5rem"     # 8px
+      xl: "0.75rem"    # 12px
+      full: "9999px"
+    
+    width:
+      default: "1px"
+      2: "2px"
+  
+  shadows:
+    sm: "0 1px 2px 0 rgb(0 0 0 / 0.05)"
+    default: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)"
+    md: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
+    lg: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)"
+    xl: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)"
+  
+  transitions:
+    fast: "150ms ease"
+    default: "200ms ease"
+    slow: "300ms ease"
+
+# ════════════════════════════════════════════════════════════
+# COMPONENT LIBRARY
+# ════════════════════════════════════════════════════════════
+
+components:
+  
+  # ── DATA DISPLAY ──────────────────────────────────────────
+  
+  data_grid:
+    name: Data Grid
+    description: |
+      Standard data table with sorting, filtering, pagination,
+      row selection, and inline actions.
+    status: production
+    
+    features:
+      - sorting (click column header)
+      - filtering (search box + column filters)
+      - pagination (configurable page size)
+      - row selection (checkbox, single/multi)
+      - inline actions (edit, delete, custom)
+      - column resizing
+      - column reordering
+      - export (CSV, Excel)
+      - row expansion (details panel)
+      - sticky header
+      - empty state
+      - loading state
+    
+    variants:
+      - default: Full featured grid
+      - compact: Reduced padding for dense data
+      - simple: No selection, basic pagination
+    
+    responsive_behavior: |
+      - Desktop: Full table view
+      - Tablet: Horizontal scroll or priority columns
+      - Mobile: Card view with key fields
+    
+    props:
+      columns:
+        type: array
+        description: Column definitions
+      data:
+        type: array
+        description: Row data
+      sortable:
+        type: boolean
+        default: true
+      filterable:
+        type: boolean
+        default: true
+      selectable:
+        type: boolean | 'single' | 'multi'
+        default: false
+      pageSize:
+        type: number
+        default: 25
+      onRowClick:
+        type: function
+      actions:
+        type: array
+        description: Row action buttons
+
+  # ──────────────────────────────────────────────────────────
+
+  card:
+    name: Card
+    description: Container for related content and actions
+    status: production
+    
+    variants:
+      - default: Standard card with shadow
+      - outlined: Border instead of shadow
+      - elevated: Stronger shadow
+      - interactive: Hover effect, clickable
+    
+    slots:
+      - header (title, subtitle, actions)
+      - body (main content)
+      - footer (actions, metadata)
+    
+    props:
+      title:
+        type: string
+      subtitle:
+        type: string
+      padding:
+        type: string
+        default: "md"
+      onClick:
+        type: function
+
+  # ── NAVIGATION ────────────────────────────────────────────
+
+  sidebar_nav:
+    name: Sidebar Navigation
+    description: |
+      Collapsible sidebar with nested navigation items.
+      Standard pattern for admin consoles and dashboards.
+    status: production
+    
+    features:
+      - collapsible (icon-only mode)
+      - nested items (expandable groups)
+      - active state indication
+      - badge/count indicators
+      - tooltips when collapsed
+      - keyboard navigation
+    
+    structure:
+      - logo (top)
+      - main navigation (scrollable)
+      - user menu (bottom)
+    
+    responsive_behavior: |
+      - Desktop: Fixed sidebar, collapsible
+      - Tablet: Overlay sidebar, hamburger trigger
+      - Mobile: Full-screen overlay
+
+  # ──────────────────────────────────────────────────────────
+
+  top_nav:
+    name: Top Navigation Bar
+    description: Horizontal navigation bar with actions
+    status: production
+    
+    features:
+      - breadcrumbs
+      - page title
+      - search (global)
+      - notifications bell
+      - user avatar/menu
+      - action buttons
+    
+    slots:
+      - left (breadcrumbs/title)
+      - center (search)
+      - right (actions, notifications, user)
+
+  # ──────────────────────────────────────────────────────────
+
+  slide_out_panel:
+    name: Slide-Out Panel
+    description: |
+      Side panel that slides in from right for details,
+      forms, or secondary content without losing context.
+    status: production
+    
+    features:
+      - smooth slide animation
+      - backdrop overlay
+      - close on escape/outside click
+      - sticky header and footer
+      - scrollable body
+      - nested panels (stack)
+      - width options (sm, md, lg, xl, full)
+    
+    variants:
+      - right: Slides from right (default)
+      - left: Slides from left
+    
+    props:
+      open:
+        type: boolean
+      onClose:
+        type: function
+      title:
+        type: string
+      width:
+        type: string
+        default: "md"
+        options: ["sm", "md", "lg", "xl", "full"]
+      showBackdrop:
+        type: boolean
+        default: true
+
+  # ── FORMS & INPUTS ────────────────────────────────────────
+
+  form:
+    name: Form
+    description: Form container with validation and submission
+    status: production
+    
+    features:
+      - field validation (sync/async)
+      - error display (inline, summary)
+      - dirty/pristine tracking
+      - submit handling
+      - loading state
+      - field dependencies
+    
+    field_types:
+      - text_input
+      - textarea
+      - select
+      - multi_select
+      - checkbox
+      - radio
+      - switch
+      - date_picker
+      - time_picker
+      - datetime_picker
+      - file_upload
+      - rich_text
+      - number_input
+      - currency_input
+      - phone_input
+      - color_picker
+
+  # ──────────────────────────────────────────────────────────
+
+  select:
+    name: Select / Dropdown
+    description: Single and multi-select dropdowns
+    status: production
+    
+    variants:
+      - default: Single select
+      - multi: Multiple selection with chips
+      - searchable: With search/filter
+      - creatable: Allow creating new options
+      - grouped: Options in groups
+    
+    features:
+      - search/filter
+      - async loading
+      - virtualization (large lists)
+      - custom option rendering
+      - clear button
+      - placeholder
+
+  # ── FEEDBACK ──────────────────────────────────────────────
+
+  toast:
+    name: Toast Notification
+    description: Temporary notification messages
+    status: production
+    
+    variants:
+      - success: Green, checkmark icon
+      - error: Red, X icon
+      - warning: Yellow, alert icon
+      - info: Blue, info icon
+    
+    features:
+      - auto-dismiss (configurable duration)
+      - manual dismiss
+      - action button
+      - stacking (max 3 visible)
+    
+    position: top-right
+
+  # ──────────────────────────────────────────────────────────
+
+  modal:
+    name: Modal Dialog
+    description: Overlay dialog for important actions
+    status: production
+    
+    variants:
+      - default: Standard modal
+      - alert: Confirmation dialog
+      - form: Modal with form
+      - fullscreen: Full viewport
+    
+    features:
+      - close on escape
+      - close on backdrop click (optional)
+      - focus trap
+      - scroll lock
+      - size options (sm, md, lg, xl)
+    
+    sizes:
+      sm: "400px"
+      md: "500px"
+      lg: "700px"
+      xl: "900px"
+
+  # ── LAYOUT ────────────────────────────────────────────────
+
+  page_header:
+    name: Page Header
+    description: Standard page header with title and actions
+    status: production
+    
+    slots:
+      - breadcrumbs
+      - title
+      - description
+      - actions (primary, secondary buttons)
+      - tabs (optional)
+    
+    variants:
+      - default: Simple header
+      - with_tabs: Header with tab navigation
+      - with_filters: Header with filter controls
+
+  # ──────────────────────────────────────────────────────────
+
+  empty_state:
+    name: Empty State
+    description: Placeholder when no data exists
+    status: production
+    
+    elements:
+      - illustration (optional)
+      - title
+      - description
+      - action button
+    
+    use_cases:
+      - no_data: "No items yet"
+      - no_results: "No results found"
+      - error: "Something went wrong"
+      - no_permission: "Access denied"
+
+# ════════════════════════════════════════════════════════════
+# LAYOUT PATTERNS
+# ════════════════════════════════════════════════════════════
+
+layouts:
+  
+  admin_layout:
+    name: Admin Console Layout
+    description: Standard layout for admin/dashboard apps
+    
+    structure: |
+      ┌────────────────────────────────────────────────┐
+      │  Top Nav (breadcrumbs, search, user)           │
+      ├──────────┬─────────────────────────────────────┤
+      │          │                                     │
+      │  Side    │  Main Content Area                  │
+      │  Nav     │                                     │
+      │          │                                     │
+      │  (coll-  │  ┌─────────────────────────────┐   │
+      │  apsible)│  │ Page Header                 │   │
+      │          │  ├─────────────────────────────┤   │
+      │          │  │                             │   │
+      │          │  │ Content                     │   │
+      │          │  │                             │   │
+      │          │  └─────────────────────────────┘   │
+      └──────────┴─────────────────────────────────────┘
+    
+    responsive:
+      desktop: "Sidebar visible, collapsible"
+      tablet: "Sidebar overlay, hamburger trigger"
+      mobile: "Full-screen sidebar overlay"
+
+  # ──────────────────────────────────────────────────────────
+
+  list_detail_layout:
+    name: List-Detail Layout
+    description: Master-detail pattern with slide-out panel
+    
+    structure: |
+      ┌─────────────────────────────────────────────────────┐
+      │ Page Header                                         │
+      ├─────────────────────────────────────────────────────┤
+      │                                                     │
+      │  ┌─────────────────────┐  ┌──────────────────────┐ │
+      │  │ Data Grid / List    │  │ Slide-Out Panel     │ │
+      │  │                     │  │                      │ │
+      │  │ • Row 1            │  │ • Details            │ │
+      │  │ • Row 2 (selected) │◀─│ • Edit Form          │ │
+      │  │ • Row 3            │  │ • Actions            │ │
+      │  │ • Row 4            │  │                      │ │
+      │  │                     │  │                      │ │
+      │  └─────────────────────┘  └──────────────────────┘ │
+      │                                                     │
+      └─────────────────────────────────────────────────────┘
+    
+    behavior: |
+      - Click row → slide-out opens with details
+      - Edit in panel, save → updates list
+      - Close panel → returns to list
+      - List remains visible for context
+
+  # ──────────────────────────────────────────────────────────
+
+  form_page_layout:
+    name: Form Page Layout
+    description: Full-page form for complex data entry
+    
+    structure: |
+      ┌─────────────────────────────────────────────────────┐
+      │ Page Header (with Cancel / Save buttons)            │
+      ├─────────────────────────────────────────────────────┤
+      │                                                     │
+      │  ┌─────────────────────────────────────────────────┐│
+      │  │ Form Section 1                                  ││
+      │  │ ─────────────────                              ││
+      │  │ [Field] [Field]                                ││
+      │  │ [Field]                                        ││
+      │  └─────────────────────────────────────────────────┘│
+      │                                                     │
+      │  ┌─────────────────────────────────────────────────┐│
+      │  │ Form Section 2                                  ││
+      │  │ ─────────────────                              ││
+      │  │ [Field] [Field]                                ││
+      │  └─────────────────────────────────────────────────┘│
+      │                                                     │
+      │  ┌─────────────────────────────────────────────────┐│
+      │  │ [Cancel]                        [Save Draft] [Save]│
+      │  └─────────────────────────────────────────────────┘│
+      └─────────────────────────────────────────────────────┘
+
+# ════════════════════════════════════════════════════════════
+# INTERACTION PATTERNS
+# ════════════════════════════════════════════════────────────
+
+interactions:
+  
+  crud_workflow:
+    name: CRUD Workflow
+    description: Standard create/read/update/delete pattern
+    
+    create:
+      trigger: "Add New" button in page header
+      action: Opens slide-out panel or modal with form
+      success: Toast notification, item added to list
+    
+    read:
+      trigger: Click row in list
+      action: Opens slide-out panel with details
+    
+    update:
+      trigger: "Edit" button in detail panel
+      action: Form becomes editable
+      success: Toast notification, list updates
+    
+    delete:
+      trigger: "Delete" button (trash icon)
+      action: Confirmation modal
+      success: Toast notification, item removed from list
+
+  # ──────────────────────────────────────────────────────────
+
+  search_filter:
+    name: Search & Filter Pattern
+    description: Standard search and filter behavior
+    
+    search:
+      placement: Above data grid
+      behavior: Debounced (300ms), searches all fields
+      clear: X button in search box
+    
+    filters:
+      placement: Filter button opens dropdown or panel
+      chips: Active filters shown as dismissible chips
+      clear_all: "Clear filters" link
+
+  # ──────────────────────────────────────────────────────────
+
+  confirmation:
+    name: Confirmation Pattern
+    description: When to require explicit confirmation
+    
+    always_confirm:
+      - Delete operations
+      - Bulk operations
+      - Irreversible actions
+      - Actions affecting other users
+    
+    modal_structure:
+      - Clear statement of what will happen
+      - Impact description (e.g., "This will delete 5 records")
+      - Cancel button (left, secondary)
+      - Confirm button (right, destructive style for deletes)
+
+# ════════════════════════════════════════════════════════════
+# PROJECT CUSTOMIZATION EXAMPLE
+# ════════════════════════════════════════════════════════════
+
+# In project.yaml, override tokens like this:
+#
+# design_tokens:
+#   colors:
+#     primary:
+#       default: "#059669"    # Emerald for healthcare app
+#       hover: "#047857"
+#       light: "#d1fae5"
+#   typography:
+#     font_family:
+#       sans: "Poppins, sans-serif"
+#
+# The UI components will automatically use these colors
+# while maintaining consistent UX patterns.

@@ -1,0 +1,640 @@
+# ════════════════════════════════════════════════════════════
+# TEKYZ REUSABLE SERVICES CATALOG
+# ════════════════════════════════════════════════════════════
+#
+# Registry of shared microservices that can be reused across projects.
+# Before building new functionality, check if a service exists here.
+#
+# Service Maturity Levels:
+#   - production: Battle-tested, used in 3+ projects
+#   - stable: Used in production, 1-2 projects
+#   - beta: Functional but still evolving
+#   - planned: Designed but not yet built
+#
+# ════════════════════════════════════════════════════════════
+
+catalog_version: "1.0"
+last_updated: "2025-01-15"
+
+# ════════════════════════════════════════════════════════════
+# AUTHENTICATION & AUTHORIZATION
+# ════════════════════════════════════════════════════════════
+
+services:
+  auth-service:
+    name: Authentication Service
+    description: |
+      Handles all authentication flows including OAuth, email/password,
+      magic links, and session management.
+    maturity: production
+    repository: github.com/tekyz/auth-service
+    
+    features:
+      - id: google-oauth
+        name: Google OAuth Login
+        description: Sign in with Google
+        status: production
+        
+      - id: email-password
+        name: Email/Password Login
+        description: Traditional email + password authentication
+        status: production
+        
+      - id: magic-link
+        name: Magic Link Login
+        description: Passwordless email login
+        status: stable
+        
+      - id: mfa
+        name: Multi-Factor Authentication
+        description: TOTP-based 2FA
+        status: beta
+        
+      - id: session-management
+        name: Session Management
+        description: JWT tokens, refresh tokens, session invalidation
+        status: production
+    
+    api_endpoints:
+      - POST /auth/register
+      - POST /auth/login
+      - POST /auth/logout
+      - POST /auth/refresh
+      - GET /auth/google
+      - GET /auth/google/callback
+      - POST /auth/magic-link
+      - POST /auth/verify-magic-link
+      - GET /auth/me
+    
+    configuration:
+      required:
+        - GOOGLE_CLIENT_ID
+        - GOOGLE_CLIENT_SECRET
+        - JWT_SECRET
+        - JWT_EXPIRY
+      optional:
+        - MAGIC_LINK_EXPIRY (default: 15m)
+        - SESSION_DURATION (default: 7d)
+        - ALLOWED_DOMAINS (for restricting signups)
+    
+    integration:
+      cloud_run_url: "https://auth-service-xxxxx.run.app"
+      health_check: "/health"
+      docs: "/docs"
+    
+    projects_using:
+      - TimeTracking
+      - DriveHealth Portal
+      - Client Dashboard
+
+  # ──────────────────────────────────────────────────────────
+
+  admin-service:
+    name: Admin Console Service
+    description: |
+      Provides admin functionality including user management,
+      impersonation (login-as), system configuration, and admin dashboard.
+    maturity: stable
+    repository: github.com/tekyz/admin-service
+    
+    features:
+      - id: user-list
+        name: User Management
+        description: List, search, filter, activate/deactivate users
+        status: production
+        
+      - id: login-as
+        name: Login As User
+        description: Admin can impersonate any user for support
+        status: production
+        audit_logged: true
+        
+      - id: system-config
+        name: System Configuration
+        description: Runtime configuration management
+        status: stable
+        
+      - id: dashboard
+        name: Admin Dashboard
+        description: System metrics, user stats, activity overview
+        status: beta
+    
+    api_endpoints:
+      - GET /admin/users
+      - GET /admin/users/:id
+      - PUT /admin/users/:id
+      - POST /admin/users/:id/activate
+      - POST /admin/users/:id/deactivate
+      - POST /admin/users/:id/login-as  # Returns impersonation token
+      - GET /admin/config
+      - PUT /admin/config/:key
+      - GET /admin/dashboard/stats
+    
+    requires_services:
+      - auth-service
+      - audit-service
+    
+    permissions_required:
+      - admin:users:read
+      - admin:users:write
+      - admin:impersonate
+      - admin:config:read
+      - admin:config:write
+
+  # ──────────────────────────────────────────────────────────
+
+  rbac-service:
+    name: Role-Based Access Control Service
+    description: |
+      Manages roles, permissions, and access control across the application.
+      Supports hierarchical roles and resource-level permissions.
+    maturity: production
+    repository: github.com/tekyz/rbac-service
+    
+    features:
+      - id: role-management
+        name: Role Management
+        description: Create, edit, delete roles
+        status: production
+        
+      - id: permission-management
+        name: Permission Management
+        description: Define and assign permissions
+        status: production
+        
+      - id: role-hierarchy
+        name: Role Hierarchy
+        description: Roles can inherit from parent roles
+        status: stable
+        
+      - id: resource-permissions
+        name: Resource-Level Permissions
+        description: Permissions on specific resources (e.g., project:123:edit)
+        status: beta
+        
+      - id: permission-check
+        name: Permission Check API
+        description: Fast permission validation endpoint
+        status: production
+    
+    api_endpoints:
+      - GET /rbac/roles
+      - POST /rbac/roles
+      - GET /rbac/roles/:id
+      - PUT /rbac/roles/:id
+      - DELETE /rbac/roles/:id
+      - GET /rbac/permissions
+      - POST /rbac/permissions
+      - POST /rbac/users/:id/roles
+      - DELETE /rbac/users/:id/roles/:roleId
+      - GET /rbac/users/:id/permissions
+      - POST /rbac/check  # { user_id, permission, resource? }
+    
+    default_roles:
+      - name: super_admin
+        description: Full system access
+        permissions: ["*"]
+        
+      - name: admin
+        description: Administrative access
+        permissions: ["admin:*", "users:*"]
+        
+      - name: manager
+        description: Team management
+        permissions: ["users:read", "reports:*"]
+        
+      - name: user
+        description: Standard user
+        permissions: ["profile:*", "data:own:*"]
+        
+      - name: viewer
+        description: Read-only access
+        permissions: ["data:read"]
+
+  # ──────────────────────────────────────────────────────────
+
+  audit-service:
+    name: Audit Trail Service
+    description: |
+      Comprehensive audit logging for all system activities.
+      Immutable, searchable, and compliant with SOC2/HIPAA requirements.
+    maturity: production
+    repository: github.com/tekyz/audit-service
+    
+    features:
+      - id: activity-logging
+        name: Activity Logging
+        description: Log all CRUD operations, logins, and system events
+        status: production
+        
+      - id: search
+        name: Audit Search
+        description: Search and filter audit logs
+        status: production
+        
+      - id: export
+        name: Audit Export
+        description: Export logs to CSV/JSON for compliance
+        status: stable
+        
+      - id: retention
+        name: Retention Policies
+        description: Configurable log retention periods
+        status: stable
+        
+      - id: alerts
+        name: Audit Alerts
+        description: Alert on suspicious activity patterns
+        status: beta
+    
+    event_types:
+      authentication:
+        - user.login
+        - user.logout
+        - user.login_failed
+        - user.password_changed
+        - user.mfa_enabled
+        - admin.login_as  # Impersonation events
+        
+      data:
+        - record.created
+        - record.updated
+        - record.deleted
+        - record.viewed
+        - record.exported
+        
+      system:
+        - config.changed
+        - permission.granted
+        - permission.revoked
+        - role.assigned
+        - role.removed
+        
+      communication:
+        - email.sent
+        - notification.sent
+        - webhook.triggered
+    
+    api_endpoints:
+      - POST /audit/log
+      - GET /audit/events
+      - GET /audit/events/:id
+      - GET /audit/users/:id/events
+      - GET /audit/resources/:type/:id/events
+      - POST /audit/export
+      - GET /audit/stats
+    
+    log_schema:
+      required:
+        - event_type
+        - actor_id
+        - actor_type  # user, system, api_key
+        - timestamp
+        - ip_address
+      optional:
+        - resource_type
+        - resource_id
+        - old_values
+        - new_values
+        - metadata
+        - session_id
+        - request_id
+
+# ════════════════════════════════════════════════════════════
+# USER MANAGEMENT
+# ════════════════════════════════════════════════════════════
+
+  user-service:
+    name: User Management Service
+    description: |
+      Core user data management including profiles, preferences,
+      and user lifecycle.
+    maturity: production
+    repository: github.com/tekyz/user-service
+    
+    features:
+      - id: user-crud
+        name: User CRUD
+        description: Create, read, update, delete users
+        status: production
+        
+      - id: profile-management
+        name: Profile Management
+        description: User profiles with custom fields
+        status: production
+        
+      - id: preferences
+        name: User Preferences
+        description: Per-user settings and preferences
+        status: stable
+        
+      - id: avatar
+        name: Avatar Management
+        description: Profile picture upload and management
+        status: stable
+    
+    api_endpoints:
+      - GET /users
+      - POST /users
+      - GET /users/:id
+      - PUT /users/:id
+      - DELETE /users/:id
+      - GET /users/:id/profile
+      - PUT /users/:id/profile
+      - GET /users/:id/preferences
+      - PUT /users/:id/preferences
+      - POST /users/:id/avatar
+
+  # ──────────────────────────────────────────────────────────
+
+  notification-service:
+    name: Notification Service
+    description: |
+      Multi-channel notification delivery including email, SMS,
+      push notifications, and in-app notifications.
+    maturity: stable
+    repository: github.com/tekyz/notification-service
+    
+    features:
+      - id: email
+        name: Email Notifications
+        description: Transactional and marketing emails via SendGrid
+        status: production
+        
+      - id: in-app
+        name: In-App Notifications
+        description: Real-time in-app notification bell
+        status: production
+        
+      - id: push
+        name: Push Notifications
+        description: Mobile push via Firebase
+        status: beta
+        
+      - id: sms
+        name: SMS Notifications
+        description: SMS via Twilio
+        status: beta
+        
+      - id: templates
+        name: Notification Templates
+        description: Customizable notification templates
+        status: production
+        
+      - id: preferences
+        name: Notification Preferences
+        description: User controls for notification channels
+        status: stable
+    
+    api_endpoints:
+      - POST /notifications/send
+      - GET /notifications/users/:id
+      - PUT /notifications/users/:id/read
+      - GET /notifications/templates
+      - POST /notifications/templates
+      - PUT /notifications/templates/:id
+      - GET /notifications/users/:id/preferences
+      - PUT /notifications/users/:id/preferences
+
+# ════════════════════════════════════════════════════════════
+# FILE & STORAGE
+# ════════════════════════════════════════════════════════════
+
+  file-service:
+    name: File Storage Service
+    description: |
+      File upload, storage, and retrieval using Google Cloud Storage.
+      Includes virus scanning, image processing, and CDN delivery.
+    maturity: production
+    repository: github.com/tekyz/file-service
+    
+    features:
+      - id: upload
+        name: File Upload
+        description: Direct and signed URL uploads
+        status: production
+        
+      - id: download
+        name: File Download
+        description: Secure file downloads with signed URLs
+        status: production
+        
+      - id: image-processing
+        name: Image Processing
+        description: Resize, crop, thumbnail generation
+        status: stable
+        
+      - id: virus-scan
+        name: Virus Scanning
+        description: Scan uploads for malware
+        status: stable
+        
+      - id: cdn
+        name: CDN Delivery
+        description: Fast delivery via Cloud CDN
+        status: production
+    
+    api_endpoints:
+      - POST /files/upload
+      - POST /files/upload-url  # Get signed upload URL
+      - GET /files/:id
+      - GET /files/:id/download
+      - DELETE /files/:id
+      - GET /files/:id/thumbnail
+      - GET /files/user/:userId
+
+# ════════════════════════════════════════════════════════════
+# BILLING & PAYMENTS
+# ════════════════════════════════════════════════════════════
+
+  billing-service:
+    name: Billing & Subscription Service
+    description: |
+      Stripe-based billing including subscriptions, invoicing,
+      usage-based billing, and payment processing.
+    maturity: stable
+    repository: github.com/tekyz/billing-service
+    
+    features:
+      - id: subscriptions
+        name: Subscription Management
+        description: Create, upgrade, downgrade, cancel subscriptions
+        status: production
+        
+      - id: invoicing
+        name: Invoicing
+        description: Generate and send invoices
+        status: production
+        
+      - id: payment-methods
+        name: Payment Methods
+        description: Credit cards, ACH, etc.
+        status: production
+        
+      - id: usage-billing
+        name: Usage-Based Billing
+        description: Metered billing for usage-based pricing
+        status: beta
+        
+      - id: trials
+        name: Trial Management
+        description: Free trial periods with auto-conversion
+        status: stable
+    
+    api_endpoints:
+      - GET /billing/subscription
+      - POST /billing/subscription
+      - PUT /billing/subscription
+      - DELETE /billing/subscription
+      - GET /billing/invoices
+      - GET /billing/invoices/:id
+      - GET /billing/payment-methods
+      - POST /billing/payment-methods
+      - DELETE /billing/payment-methods/:id
+      - POST /billing/usage  # Report usage for metered billing
+
+# ════════════════════════════════════════════════════════════
+# PLANNED SERVICES
+# ════════════════════════════════════════════════════════════
+
+  webhook-service:
+    name: Webhook Service
+    description: |
+      Outbound webhook management for integrations.
+      Includes retry logic, signing, and delivery tracking.
+    maturity: planned
+    
+    features:
+      - id: webhook-management
+        name: Webhook Management
+        description: Register and manage webhook endpoints
+        status: planned
+        
+      - id: delivery
+        name: Webhook Delivery
+        description: Reliable delivery with retries
+        status: planned
+        
+      - id: signing
+        name: Webhook Signing
+        description: HMAC signature verification
+        status: planned
+
+  # ──────────────────────────────────────────────────────────
+
+  analytics-service:
+    name: Analytics Service
+    description: |
+      Event tracking and analytics for product usage metrics.
+    maturity: planned
+
+# ════════════════════════════════════════════════════════════
+# SERVICE DETECTION PATTERNS
+# ════════════════════════════════════════════════════════════
+
+detection_patterns:
+  # When requirements mention these, suggest the corresponding service
+  
+  auth-service:
+    keywords:
+      - login
+      - signin
+      - sign in
+      - authentication
+      - oauth
+      - google login
+      - password
+      - session
+      - jwt
+      - token
+    requirement_patterns:
+      - "user.*log.?in"
+      - "sign.?up"
+      - "authenticat"
+      - "oauth"
+      - "google.*sign"
+  
+  admin-service:
+    keywords:
+      - admin
+      - admin console
+      - admin panel
+      - user management
+      - login as
+      - impersonate
+      - support access
+    requirement_patterns:
+      - "admin.*console"
+      - "login.?as"
+      - "impersonat"
+      - "support.*user"
+  
+  rbac-service:
+    keywords:
+      - roles
+      - permissions
+      - access control
+      - rbac
+      - authorization
+      - role-based
+    requirement_patterns:
+      - "role.*permission"
+      - "access.?control"
+      - "rbac"
+      - "authori[sz]"
+  
+  audit-service:
+    keywords:
+      - audit
+      - audit trail
+      - activity log
+      - history
+      - compliance
+      - tracking
+    requirement_patterns:
+      - "audit"
+      - "activity.*log"
+      - "track.*change"
+      - "compliance"
+      - "history.*record"
+  
+  notification-service:
+    keywords:
+      - email
+      - notification
+      - alert
+      - sms
+      - push notification
+    requirement_patterns:
+      - "send.*email"
+      - "notif"
+      - "alert.*user"
+      - "sms"
+  
+  file-service:
+    keywords:
+      - file upload
+      - attachment
+      - document
+      - image upload
+      - storage
+    requirement_patterns:
+      - "upload.*file"
+      - "attach"
+      - "document.*storage"
+      - "image.*upload"
+  
+  billing-service:
+    keywords:
+      - billing
+      - subscription
+      - payment
+      - invoice
+      - stripe
+      - pricing
+    requirement_patterns:
+      - "bill"
+      - "subscript"
+      - "payment"
+      - "invoice"
+      - "pricing.*tier"

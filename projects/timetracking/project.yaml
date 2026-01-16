@@ -1,0 +1,35 @@
+project:
+  id: timetracking
+  name: Timetracking
+  type: existing
+  source_path: C:\Users\david\TimeTracking
+  ingested_at: '2026-01-16T08:54:10.848723'
+stats:
+  file_count: 1375
+  source_file_count: 46
+  total_lines: 295045
+tech_stack:
+  frontend:
+  - React 19.2.3
+  - Vite
+  backend: []
+  database: []
+  infrastructure:
+  - Docker
+  - GitHub Actions
+  testing:
+  - Playwright
+  other:
+  - TypeScript
+features:
+  has_tests: true
+  has_ci: true
+  has_docker: true
+entry_points: []
+config_files:
+- package.json
+- Dockerfile
+- .github/workflows
+- tsconfig.json
+- vite.config.ts
+- playwright.config.ts

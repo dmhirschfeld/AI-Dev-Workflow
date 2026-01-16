@@ -1,0 +1,396 @@
+# AI-Dev-Workflow - Agent Definitions
+# All agents are defined here and instantiated via the AgentFactory
+
+agents:
+  # ============================================
+  # ORCHESTRATOR - Central Coordinator
+  # ============================================
+  - id: orchestrator
+    role: "Orchestrator"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 4096
+    system_prompt_file: "agents/prompts/orchestrator.md"
+    description: "Central coordinator for the entire workflow"
+    responsibilities:
+      - Route tasks to appropriate specialist agents
+      - Manage dependencies and sequencing
+      - Track workflow state and progress
+      - Trigger voting committees at quality gates
+      - Handle retry logic when tasks fail
+      - Escalate persistent failures for human review
+
+  # ============================================
+  # IDEATION & PLANNING AGENTS
+  # ============================================
+  - id: ideation
+    role: "Ideation Agent"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.8  # Higher for creativity
+    max_tokens: 4096
+    system_prompt_file: "agents/prompts/ideation.md"
+    description: "Transform vague concepts into actionable feature sets"
+    responsibilities:
+      - Interpret high-level prompts
+      - Generate feature ideas through structured brainstorming
+      - Identify market differentiators and MVP scope
+      - Process enhancement requests
+      - Research comparable products/solutions
+
+  - id: product_owner
+    role: "Product Owner"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.4
+    max_tokens: 4096
+    system_prompt_file: "agents/prompts/product_owner.md"
+    description: "Scope management and prioritization"
+    responsibilities:
+      - Prioritize features based on value/effort
+      - Make scope tradeoff decisions
+      - Define MVP boundaries
+      - Say no or later to scope creep
+      - Maintain product backlog
+
+  - id: business_analyst
+    role: "Business Analyst"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/business_analyst.md"
+    description: "Requirements documentation and user story creation"
+    responsibilities:
+      - Write detailed requirements from prioritized features
+      - Create user stories with acceptance criteria
+      - Document business rules and workflows
+      - Clarify edge cases and error scenarios
+      - Maintain requirements traceability
+
+  # ============================================
+  # DESIGN AGENTS
+  # ============================================
+  - id: ui_ux_designer
+    role: "UI/UX Designer"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.6
+    max_tokens: 4096
+    system_prompt_file: "agents/prompts/ui_ux_designer.md"
+    description: "Interface design and user experience"
+    responsibilities:
+      - Design user interfaces and screen layouts
+      - Create user flow diagrams
+      - Define interaction patterns
+      - Ensure accessibility compliance
+      - Maintain design system consistency
+
+  - id: solutions_architect
+    role: "Solutions Architect"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/solutions_architect.md"
+    description: "System architecture and design patterns"
+    responsibilities:
+      - Define system architecture and component structure
+      - Select appropriate design patterns
+      - Make technology stack decisions
+      - Design API contracts and data flows
+      - Ensure scalability and maintainability
+
+  - id: data_architect
+    role: "Data Architect"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 4096
+    system_prompt_file: "agents/prompts/data_architect.md"
+    description: "Database design and data management"
+    responsibilities:
+      - Design database schemas
+      - Plan data migrations
+      - Optimize query performance
+      - Define data models and relationships
+      - Establish data integrity rules
+
+  - id: security_specialist
+    role: "Security Specialist"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    max_tokens: 4096
+    system_prompt_file: "agents/prompts/security_specialist.md"
+    description: "Security analysis and threat mitigation"
+    responsibilities:
+      - Perform threat modeling
+      - Define authentication/authorization requirements
+      - Review code for security vulnerabilities
+      - Scan dependencies for known vulnerabilities
+      - Establish security standards and policies
+
+  - id: api_designer
+    role: "Integration/API Designer"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 4096
+    system_prompt_file: "agents/prompts/api_designer.md"
+    description: "External integrations and API design"
+    responsibilities:
+      - Design API contracts (REST, GraphQL)
+      - Plan third-party integrations
+      - Define webhook patterns
+      - Document API endpoints
+      - Manage API versioning strategy
+
+  # ============================================
+  # DEVELOPMENT AGENTS
+  # ============================================
+  - id: developer
+    role: "Developer"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/developer.md"
+    description: "Code implementation"
+    responsibilities:
+      - Write production code from specifications
+      - Implement features according to user stories
+      - Follow architectural patterns and coding standards
+      - Write inline documentation
+      - Handle error cases per specifications
+
+  - id: code_reviewer
+    role: "Code Reviewer"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    max_tokens: 4096
+    system_prompt_file: "agents/prompts/code_reviewer.md"
+    description: "Code quality and standards enforcement"
+    responsibilities:
+      - Review code for adherence to coding standards
+      - Check documentation completeness
+      - Identify potential bugs and logic errors
+      - Verify error handling
+      - Flag security vulnerabilities
+
+  - id: code_simplifier
+    role: "Code Simplifier"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.4
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/code_simplifier.md"
+    description: "Refactoring and optimization"
+    responsibilities:
+      - Refactor code for simplicity and readability
+      - Identify and extract reusable components
+      - Optimize performance bottlenecks
+      - Remove code duplication (DRY)
+      - Simplify complex logic
+
+  # ============================================
+  # QUALITY & DOCUMENTATION AGENTS
+  # ============================================
+  - id: test_writer
+    role: "Test Writer"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/test_writer.md"
+    description: "Test script creation and maintenance"
+    tools:
+      - playwright
+    responsibilities:
+      - Write Playwright test scripts
+      - Define test coverage requirements
+      - Create test data and fixtures
+      - Update tests when requirements change
+      - Design edge case tests
+
+  - id: technical_writer
+    role: "Technical Writer"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.4
+    max_tokens: 4096
+    system_prompt_file: "agents/prompts/technical_writer.md"
+    description: "Documentation creation and maintenance"
+    responsibilities:
+      - Write API documentation
+      - Maintain README files
+      - Create setup/installation guides
+      - Document configuration options
+      - Write troubleshooting guides
+
+  - id: devops
+    role: "DevOps Engineer"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 4096
+    system_prompt_file: "agents/prompts/devops.md"
+    description: "CI/CD and infrastructure management"
+    responsibilities:
+      - Implement CI/CD pipelines
+      - Manage deployment configurations
+      - Set up monitoring and alerting
+      - Configure environments
+      - Manage infrastructure as code
+
+  # ============================================
+  # EXISTING CODEBASE ANALYSIS AGENTS
+  # ============================================
+  - id: code_archaeologist
+    role: "Code Archaeologist"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.4
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/code_archaeologist.md"
+    description: "Understand existing codebases and reverse-engineer intent"
+    responsibilities:
+      - Analyze and map existing code architecture
+      - Infer original developer intent and design decisions
+      - Document tribal knowledge hidden in code
+      - Identify patterns and anti-patterns
+      - Create onboarding documentation for legacy code
+
+  - id: tech_debt_analyst
+    role: "Tech Debt Analyst"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/tech_debt_analyst.md"
+    description: "Identify, categorize, and prioritize technical debt"
+    responsibilities:
+      - Systematically identify all forms of tech debt
+      - Categorize by type and severity
+      - Estimate remediation effort
+      - Prioritize based on business impact
+      - Create actionable improvement plans
+
+  - id: modernization_specialist
+    role: "Modernization Specialist"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.4
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/modernization_specialist.md"
+    description: "Guide safe, incremental modernization of codebases"
+    responsibilities:
+      - Plan dependency upgrades
+      - Modernize code patterns
+      - Guide architecture evolution
+      - Create migration strategies
+      - Minimize risk during upgrades
+
+# ============================================
+# VOTING AGENTS (Specialized Perspectives)
+# ============================================
+voters:
+  # Requirements Gate Voters
+  - id: voter_completeness
+    role: "Completeness Voter"
+    perspective: "Are all scenarios and edge cases covered?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/completeness.md"
+
+  - id: voter_clarity
+    role: "Clarity Voter"
+    perspective: "Are requirements unambiguous and clear?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/clarity.md"
+
+  - id: voter_testability
+    role: "Testability Voter"
+    perspective: "Can acceptance criteria be tested?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/testability.md"
+
+  - id: voter_feasibility
+    role: "Technical Feasibility Voter"
+    perspective: "Is this buildable as specified?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/feasibility.md"
+
+  - id: voter_user_value
+    role: "User Value Voter"
+    perspective: "Does this deliver meaningful user value?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/user_value.md"
+
+  # Architecture Gate Voters
+  - id: voter_scalability
+    role: "Scalability Voter"
+    perspective: "Will this architecture scale?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/scalability.md"
+
+  - id: voter_security
+    role: "Security Voter"
+    perspective: "Are there security concerns?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/security.md"
+
+  - id: voter_maintainability
+    role: "Maintainability Voter"
+    perspective: "Can this be maintained long-term?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/maintainability.md"
+
+  - id: voter_performance
+    role: "Performance Voter"
+    perspective: "Are there performance risks?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/performance.md"
+
+  - id: voter_integration
+    role: "Integration Voter"
+    perspective: "Does this integrate cleanly with existing systems?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/integration.md"
+
+  # Code Review Voters
+  - id: voter_standards
+    role: "Standards Voter"
+    perspective: "Does code follow coding standards?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/standards.md"
+
+  - id: voter_logic
+    role: "Logic Voter"
+    perspective: "Is the logic correct and efficient?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/logic.md"
+
+  # Release Readiness Voters
+  - id: voter_code_quality
+    role: "Code Quality Voter"
+    perspective: "Is code production-ready?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/code_quality.md"
+
+  - id: voter_test_coverage
+    role: "Test Coverage Voter"
+    perspective: "Is testing sufficient?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/test_coverage.md"
+
+  - id: voter_documentation
+    role: "Documentation Voter"
+    perspective: "Is documentation complete?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/documentation.md"
+
+  - id: voter_operations
+    role: "Operations Voter"
+    perspective: "Is this deployable and monitorable?"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.2
+    system_prompt_file: "agents/prompts/voters/operations.md"

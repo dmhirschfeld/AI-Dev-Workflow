@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Dev-Workflow - Interactive Checkpoint System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e4e4e7;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            text-align: center;
+            color: #94a3b8;
+            margin-bottom: 30px;
+        }
+        .diagram-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Sections */
+        .flow-section {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-title .icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+        
+        /* Autonomy Level Comparison */
+        .autonomy-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .autonomy-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        .autonomy-card:hover {
+            transform: translateY(-4px);
+        }
+        .autonomy-card.pair {
+            border-color: #10b981;
+        }
+        .autonomy-card.balanced {
+            border-color: #3b82f6;
+        }
+        .autonomy-card.autonomous {
+            border-color: #8b5cf6;
+        }
+        .autonomy-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .autonomy-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        .autonomy-count {
+            background: rgba(255,255,255,0.1);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+        .autonomy-desc {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+        .checkpoint-list {
+            list-style: none;
+        }
+        .checkpoint-list li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+        }
+        .checkpoint-list li::before {
+            content: "✓";
+            color: #10b981;
+        }
+        .checkpoint-list li.not-included::before {
+            content: "○";
+            color: #475569;
+        }
+        .checkpoint-list li.not-included {
+            color: #64748b;
+        }
+        
+        /* Phase Diagram */
+        .phase-container {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        .phase-column {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .phase-header {
+            text-align: center;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .phase-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+        }
+        .phase-checkpoints {
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+        
+        /* Checkpoint Node */
+        .checkpoint-node {
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .checkpoint-node:hover {
+            border-color: #3b82f6;
+            transform: translateX(4px);
+        }
+        .checkpoint-node.human-required {
+            border-left: 4px solid #10b981;
+        }
+        .checkpoint-node.auto-possible {
+            border-left: 4px solid #8b5cf6;
+        }
+        .checkpoint-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .checkpoint-desc {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+        .checkpoint-badges {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.1);
+        }
+        .badge.pair { background: rgba(16, 185, 129, 0.3); color: #34d399; }
+        .badge.balanced { background: rgba(59, 130, 246, 0.3); color: #60a5fa; }
+        .badge.autonomous { background: rgba(139, 92, 246, 0.3); color: #a78bfa; }
+        
+        /* Arrow connector */
+        .connector {
+            display: flex;
+            justify-content: center;
+            padding: 8px 0;
+            color: #475569;
+        }
+        
+        /* Interactive Menu Example */
+        .menu-example {
+            background: #0f172a;
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            margin: 20px 0;
+        }
+        .menu-header {
+            color: #60a5fa;
+            margin-bottom: 16px;
+        }
+        .menu-line {
+            margin: 4px 0;
+        }
+        .menu-line.dim { color: #64748b; }
+        .menu-line.green { color: #10b981; }
+        .menu-line.yellow { color: #eab308; }
+        .menu-line.cyan { color: #06b6d4; }
+        .menu-line.red { color: #ef4444; }
+        
+        /* Legend */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+        .legend-line {
+            width: 24px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        
+        /* Flow Diagram */
+        .flow-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin: 16px 0;
+        }
+        .node {
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: center;
+            min-width: 140px;
+        }
+        .human { background: linear-gradient(135deg, #059669, #10b981); }
+        .agent { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+        .gate { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        .artifact { background: linear-gradient(135deg, #0891b2, #06b6d4); }
+        .arrow { color: #64748b; font-size: 1.5rem; }
+        
+        /* Responsive */
+        @media (max-width: 900px) {
+            .autonomy-grid { grid-template-columns: 1fr; }
+            .phase-container { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="diagram-container">
+        <h1>🤖 AI-Dev-Workflow</h1>
+        <p class="subtitle">Interactive Checkpoint System with Autonomy Levels</p>
+        
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-line" style="background: #10b981;"></div>
+                <span>Human Review Required</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-line" style="background: #8b5cf6;"></div>
+                <span>Auto-Approve Possible</span>
+            </div>
+            <div class="legend-item">
+                <span class="badge pair">P</span>
+                <span>Pair Programming</span>
+            </div>
+            <div class="legend-item">
+                <span class="badge balanced">B</span>
+                <span>Balanced</span>
+            </div>
+            <div class="legend-item">
+                <span class="badge autonomous">A</span>
+                <span>Autonomous</span>
+            </div>
+        </div>
+        
+        <!-- Autonomy Level Selection -->
+        <div class="flow-section">
+            <div class="section-title">
+                <div class="icon" style="background: #8b5cf6;">1</div>
+                Choose Your Autonomy Level
+            </div>
+            
+            <div class="autonomy-grid">
+                <div class="autonomy-card pair">
+                    <div class="autonomy-header">
+                        <span class="autonomy-name">🤝 Pair Programming</span>
+                        <span class="autonomy-count">13 checkpoints</span>
+                    </div>
+                    <p class="autonomy-desc">Maximum control and visibility. Review at every stage. Best for complex projects or learning the system.</p>
+                    <ul class="checkpoint-list">
+                        <li>Requirements Review</li>
+                        <li>Information Architecture</li>
+                        <li>Wireframes</li>
+                        <li>Style System</li>
+                        <li>High-Fidelity Designs</li>
+                        <li>Design Sign-off</li>
+                        <li>Milestone Plan</li>
+                        <li>Foundation Review</li>
+                        <li>Each Feature Milestone</li>
+                        <li>Integration Review</li>
+                        <li>Testing Review</li>
+                        <li>PR Review</li>
+                        <li>Final Sign-off</li>
+                    </ul>
+                </div>
+                
+                <div class="autonomy-card balanced">
+                    <div class="autonomy-header">
+                        <span class="autonomy-name">⚖️ Balanced</span>
+                        <span class="autonomy-count">9 checkpoints</span>
+                    </div>
+                    <p class="autonomy-desc">Good balance of speed and oversight. Review at key decision points. Recommended for most projects.</p>
+                    <ul class="checkpoint-list">
+                        <li>Requirements Review</li>
+                        <li>Information Architecture</li>
+                        <li class="not-included">Wireframes</li>
+                        <li class="not-included">Style System</li>
+                        <li>High-Fidelity Designs</li>
+                        <li>Design Sign-off</li>
+                        <li>Milestone Plan</li>
+                        <li>Foundation Review</li>
+                        <li class="not-included">Each Feature Milestone</li>
+                        <li>Integration Review</li>
+                        <li class="not-included">Testing Review</li>
+                        <li>PR Review</li>
+                        <li>Final Sign-off</li>
+                    </ul>
+                </div>
+                
+                <div class="autonomy-card autonomous">
+                    <div class="autonomy-header">
+                        <span class="autonomy-name">🚀 Fully Autonomous</span>
+                        <span class="autonomy-count">4 checkpoints</span>
+                    </div>
+                    <p class="autonomy-desc">Minimal interruptions. Only critical gates. Best for well-defined tasks with clear requirements.</p>
+                    <ul class="checkpoint-list">
+                        <li class="not-included">Requirements Review</li>
+                        <li class="not-included">Information Architecture</li>
+                        <li class="not-included">Wireframes</li>
+                        <li class="not-included">Style System</li>
+                        <li class="not-included">High-Fidelity Designs</li>
+                        <li>Design Sign-off</li>
+                        <li class="not-included">Milestone Plan</li>
+                        <li class="not-included">Foundation Review</li>
+                        <li class="not-included">Each Feature Milestone</li>
+                        <li class="not-included">Integration Review</li>
+                        <li class="not-included">Testing Review</li>
+                        <li>PR Review</li>
+                        <li>Final Sign-off</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Phase Breakdown -->
+        <div class="flow-section">
+            <div class="section-title">
+                <div class="icon" style="background: #3b82f6;">2</div>
+                Checkpoint Flow by Phase
+            </div>
+            
+            <div class="phase-container">
+                <!-- Design Phase -->
+                <div class="phase-column">
+                    <div class="phase-header">
+                        <div class="phase-name">🎨 Design Phase</div>
+                        <div class="phase-checkpoints">6 possible checkpoints</div>
+                    </div>
+                    
+                    <div class="checkpoint-node human-required">
+                        <div class="checkpoint-name">Requirements Review</div>
+                        <div class="checkpoint-desc">User stories, acceptance criteria, edge cases</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                            <span class="badge balanced">B</span>
+                        </div>
+                    </div>
+                    <div class="connector">↓</div>
+                    
+                    <div class="checkpoint-node human-required">
+                        <div class="checkpoint-name">Information Architecture</div>
+                        <div class="checkpoint-desc">Site map, navigation, data flow</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                            <span class="badge balanced">B</span>
+                        </div>
+                    </div>
+                    <div class="connector">↓</div>
+                    
+                    <div class="checkpoint-node human-required">
+                        <div class="checkpoint-name">Wireframes</div>
+                        <div class="checkpoint-desc">Low-fidelity layouts, component placement</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                        </div>
+                    </div>
+                    <div class="connector">↓</div>
+                    
+                    <div class="checkpoint-node human-required">
+                        <div class="checkpoint-name">Style System</div>
+                        <div class="checkpoint-desc">Colors, typography, component styling</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                        </div>
+                    </div>
+                    <div class="connector">↓</div>
+                    
+                    <div class="checkpoint-node human-required">
+                        <div class="checkpoint-name">High-Fidelity Designs</div>
+                        <div class="checkpoint-desc">Complete mockups, interactions</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                            <span class="badge balanced">B</span>
+                        </div>
+                    </div>
+                    <div class="connector">↓</div>
+                    
+                    <div class="checkpoint-node auto-possible">
+                        <div class="checkpoint-name">🚦 Design Sign-off</div>
+                        <div class="checkpoint-desc">Final approval before development</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                            <span class="badge balanced">B</span>
+                            <span class="badge autonomous">A</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Development Phase -->
+                <div class="phase-column">
+                    <div class="phase-header">
+                        <div class="phase-name">💻 Development Phase</div>
+                        <div class="phase-checkpoints">5 possible checkpoints</div>
+                    </div>
+                    
+                    <div class="checkpoint-node human-required">
+                        <div class="checkpoint-name">Milestone Plan Review</div>
+                        <div class="checkpoint-desc">Auto-generated milestones, estimates</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                            <span class="badge balanced">B</span>
+                        </div>
+                    </div>
+                    <div class="connector">↓</div>
+                    
+                    <div class="checkpoint-node human-required">
+                        <div class="checkpoint-name">Foundation Milestone</div>
+                        <div class="checkpoint-desc">Scaffolding, database, auth</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                            <span class="badge balanced">B</span>
+                        </div>
+                    </div>
+                    <div class="connector">↓</div>
+                    
+                    <div class="checkpoint-node human-required">
+                        <div class="checkpoint-name">Feature Milestones</div>
+                        <div class="checkpoint-desc">Each feature implementation</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                        </div>
+                    </div>
+                    <div class="connector">↓</div>
+                    
+                    <div class="checkpoint-node human-required">
+                        <div class="checkpoint-name">Integration Review</div>
+                        <div class="checkpoint-desc">All features working together</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                            <span class="badge balanced">B</span>
+                        </div>
+                    </div>
+                    <div class="connector">↓</div>
+                    
+                    <div class="checkpoint-node human-required">
+                        <div class="checkpoint-name">Testing Review</div>
+                        <div class="checkpoint-desc">Coverage and results</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Delivery Phase -->
+                <div class="phase-column">
+                    <div class="phase-header">
+                        <div class="phase-name">🚀 Delivery Phase</div>
+                        <div class="phase-checkpoints">2 checkpoints (all levels)</div>
+                    </div>
+                    
+                    <div class="checkpoint-node auto-possible">
+                        <div class="checkpoint-name">🚦 PR Review</div>
+                        <div class="checkpoint-desc">Generated pull request</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                            <span class="badge balanced">B</span>
+                            <span class="badge autonomous">A</span>
+                        </div>
+                    </div>
+                    <div class="connector">↓</div>
+                    
+                    <div class="checkpoint-node auto-possible">
+                        <div class="checkpoint-name">🚦 Final Sign-off</div>
+                        <div class="checkpoint-desc">Merge and deploy approval</div>
+                        <div class="checkpoint-badges">
+                            <span class="badge pair">P</span>
+                            <span class="badge balanced">B</span>
+                            <span class="badge autonomous">A</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Interactive Menu Example -->
+        <div class="flow-section">
+            <div class="section-title">
+                <div class="icon" style="background: #10b981;">3</div>
+                Interactive Checkpoint Menu
+            </div>
+            
+            <p style="color: #94a3b8; margin-bottom: 16px;">At each checkpoint, you see an interactive menu:</p>
+            
+            <div class="menu-example">
+                <div class="menu-header">
+══════════════════════════════════════════════════════════════════════
+  CHECKPOINT: High-Fidelity Design Review
+  Phase: design | Progress: 4/9
+══════════════════════════════════════════════════════════════════════
+                </div>
+                
+                <div class="menu-line">Complete mockups with full styling and interactions</div>
+                <div class="menu-line dim" style="margin: 12px 0;">Agent Confidence: <span style="color: #eab308;">78%</span> (threshold: 85%)</div>
+                
+                <div class="menu-line" style="margin-top: 16px;">Generated Artifacts:</div>
+                <div class="menu-line dim">  [1] ✓ design/mockups/dashboard.html</div>
+                <div class="menu-line dim">  [2] ✓ design/mockups/settings.html</div>
+                <div class="menu-line dim">  [3] ✓ design/mockups/profile.html</div>
+                <div class="menu-line dim">  [4] ✓ design/interaction_specs.md</div>
+                
+                <div class="menu-line" style="margin-top: 16px;">Review Questions:</div>
+                <div class="menu-line dim">  • Do mockups match requirements?</div>
+                <div class="menu-line dim">  • Are interactions clearly specified?</div>
+                <div class="menu-line dim">  • Is responsive behavior defined?</div>
+                
+                <div class="menu-line" style="margin-top: 16px;">─────────────────────────────────────────────────────────────────────</div>
+                <div class="menu-line" style="margin-top: 8px;">Actions:</div>
+                <div class="menu-line green">  [A] Approve    - Accept and proceed</div>
+                <div class="menu-line cyan">  [F] Feedback   - Add notes without deciding</div>
+                <div class="menu-line yellow">  [R] Revise     - Request changes</div>
+                <div class="menu-line cyan">  [V] View       - Open artifacts in browser</div>
+                <div class="menu-line dim">  [S] Save       - Save progress and pause</div>
+                <div class="menu-line red">  [X] Abort      - Cancel workflow</div>
+                <div class="menu-line yellow">  [O] Override   - Approve despite low confidence</div>
+                <div class="menu-line" style="margin-top: 8px;">─────────────────────────────────────────────────────────────────────</div>
+                <div class="menu-line" style="margin-top: 8px;">Your choice: <span style="color: #60a5fa;">_</span></div>
+            </div>
+        </div>
+        
+        <!-- Iteration Flow -->
+        <div class="flow-section">
+            <div class="section-title">
+                <div class="icon" style="background: #f59e0b;">4</div>
+                Checkpoint Iteration Flow
+            </div>
+            
+            <svg viewBox="0 0 1000 300" style="width: 100%; height: auto;">
+                <!-- Start -->
+                <rect x="20" y="120" width="100" height="50" rx="8" fill="#3b82f6"/>
+                <text x="70" y="150" fill="white" text-anchor="middle" font-size="12">Agent Work</text>
+                
+                <!-- Arrow -->
+                <line x1="120" y1="145" x2="180" y2="145" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                
+                <!-- Voting -->
+                <rect x="180" y="120" width="100" height="50" rx="8" fill="#ec4899"/>
+                <text x="230" y="150" fill="white" text-anchor="middle" font-size="12">Voting (16)</text>
+                
+                <!-- Arrow -->
+                <line x1="280" y1="145" x2="340" y2="145" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                
+                <!-- Confidence Check -->
+                <polygon points="390,120 440,145 390,170 340,145" fill="#8b5cf6"/>
+                <text x="390" y="148" fill="white" text-anchor="middle" font-size="10">Conf?</text>
+                
+                <!-- Auto-approve path -->
+                <line x1="440" y1="145" x2="500" y2="145" stroke="#10b981" stroke-width="2"/>
+                <text x="470" y="135" fill="#10b981" font-size="10">≥85%</text>
+                
+                <!-- Manual review path -->
+                <line x1="390" y1="170" x2="390" y2="220" stroke="#eab308" stroke-width="2"/>
+                <text x="420" y="200" fill="#eab308" font-size="10">&lt;85%</text>
+                
+                <!-- Human Review -->
+                <rect x="340" y="220" width="100" height="50" rx="8" fill="#10b981"/>
+                <text x="390" y="250" fill="white" text-anchor="middle" font-size="12">Human Review</text>
+                
+                <!-- Decision diamond -->
+                <polygon points="550,120 600,145 550,170 500,145" fill="#ef4444"/>
+                <text x="550" y="148" fill="white" text-anchor="middle" font-size="10">OK?</text>
+                
+                <!-- Approve -->
+                <line x1="600" y1="145" x2="660" y2="145" stroke="#10b981" stroke-width="2" marker-end="url(#arrow-green)"/>
+                <text x="630" y="135" fill="#10b981" font-size="10">Yes</text>
+                
+                <!-- Next checkpoint -->
+                <rect x="660" y="120" width="120" height="50" rx="8" fill="#06b6d4"/>
+                <text x="720" y="150" fill="white" text-anchor="middle" font-size="12">Next Checkpoint</text>
+                
+                <!-- Revise loop -->
+                <path d="M 550 170 Q 550 250 230 250 Q 20 250 20 170" fill="none" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow-red)"/>
+                <text x="280" y="270" fill="#ef4444" font-size="10">Revise</text>
+                
+                <!-- Human to decision -->
+                <line x1="440" y1="245" x2="480" y2="245" stroke="#64748b" stroke-width="2"/>
+                <line x1="480" y1="245" x2="480" y2="165" stroke="#64748b" stroke-width="2"/>
+                <line x1="480" y1="165" x2="500" y2="145" stroke="#64748b" stroke-width="2"/>
+                
+                <!-- Defs -->
+                <defs>
+                    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+                    </marker>
+                    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#10b981"/>
+                    </marker>
+                    <marker id="arrow-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
+                    </marker>
+                </defs>
+            </svg>
+            
+            <p style="color: #94a3b8; margin-top: 16px; text-align: center;">
+                In <strong>Autonomous</strong> mode, high-confidence checkpoints auto-approve.<br>
+                In <strong>Pair Programming</strong> mode, every checkpoint requires human review.
+            </p>
+        </div>
+        
+        <!-- CLI Commands -->
+        <div class="flow-section">
+            <div class="section-title">
+                <div class="icon" style="background: #06b6d4;">5</div>
+                CLI Commands
+            </div>
+            
+            <div class="menu-example">
+                <div class="menu-line dim"># Start new session with autonomy selection</div>
+                <div class="menu-line">python cli.py start</div>
+                <div class="menu-line" style="margin-top: 12px; color: #64748b;"># Resume paused session</div>
+                <div class="menu-line">python cli.py resume my-project</div>
+                <div class="menu-line" style="margin-top: 12px; color: #64748b;"># View checkpoint info</div>
+                <div class="menu-line">python cli.py checkpoints</div>
+                <div class="menu-line" style="margin-top: 12px; color: #64748b;"># Show help</div>
+                <div class="menu-line">python cli.py --help</div>
+            </div>
+        </div>
+        
+    </div>
+</body>
+</html>

@@ -1,0 +1,238 @@
+# Model Configuration
+# Defines which LLM model to use for each agent and voter
+
+# ════════════════════════════════════════════════════════════
+# MODEL DEFINITIONS
+# ════════════════════════════════════════════════════════════
+
+models:
+  # Claude 4.5 Opus - Complex reasoning, architecture, novel problems
+  opus:
+    provider: anthropic
+    model_id: claude-opus-4-5-20251101
+    pricing:
+      input: 5.00    # per 1M tokens
+      output: 25.00  # per 1M tokens
+    use_cases:
+      - Complex system design
+      - Novel problem solving
+      - Multi-step reasoning
+      - Architecture decisions
+  
+  # Claude 4.5 Sonnet - Balanced, fast, good for implementation
+  sonnet:
+    provider: anthropic
+    model_id: claude-sonnet-4-5-20250929
+    pricing:
+      input: 3.00
+      output: 15.00
+    use_cases:
+      - Code implementation
+      - Code review
+      - Most evaluation tasks
+      - Documentation
+  
+  # Claude 4.5 Haiku - Fast, cheap, simple evaluations
+  haiku:
+    provider: anthropic
+    model_id: claude-haiku-4-5-20251001
+    pricing:
+      input: 0.80
+      output: 4.00
+    use_cases:
+      - Simple checklist evaluations
+      - Format validation
+      - Quick reviews
+  
+  # OpenAI GPT-5.2-Codex - Strong cybersecurity, code analysis
+  codex:
+    provider: openai
+    model_id: gpt-5.2-codex
+    pricing:
+      input: 5.00   # Estimated - verify actual pricing
+      output: 15.00
+    use_cases:
+      - Security analysis (alternative)
+      - Complex code review
+      - Vulnerability detection
+
+# ════════════════════════════════════════════════════════════
+# AGENT MODEL ASSIGNMENTS
+# ════════════════════════════════════════════════════════════
+
+# Principle: Opus for design/architecture, Sonnet for implementation
+
+agents:
+  # ── Tier 1: Opus (Complex Design & Analysis) ──────────────
+  # These agents need deep reasoning for novel problems
+  
+  solutions_architect:
+    model: opus
+    rationale: "System design requires balancing tradeoffs, novel solutions"
+  
+  data_architect:
+    model: opus
+    rationale: "Schema design has long-term implications"
+  
+  api_designer:
+    model: opus
+    rationale: "API contracts are hard to change, need careful design"
+  
+  code_archaeologist:
+    model: opus
+    rationale: "Understanding complex existing systems"
+  
+  tech_debt_analyst:
+    model: opus
+    rationale: "Identifying non-obvious technical debt"
+  
+  modernization_specialist:
+    model: opus
+    rationale: "Planning complex migrations"
+  
+  # ── Tier 2: Sonnet (Implementation & Review) ──────────────
+  # Well-defined tasks from architecture
+  
+  developer:
+    model: sonnet
+    rationale: "Implementation from clear specs, atomic tasks"
+  
+  code_reviewer:
+    model: sonnet
+    rationale: "Bounded evaluation task"
+  
+  test_writer:
+    model: sonnet
+    rationale: "Test generation from specs"
+  
+  security_specialist:
+    model: sonnet
+    rationale: "Security review is systematic"
+  
+  devops:
+    model: sonnet
+    rationale: "Infrastructure tasks are well-defined"
+  
+  technical_writer:
+    model: sonnet
+    rationale: "Documentation from existing code/specs"
+  
+  code_simplifier:
+    model: sonnet
+    rationale: "Refactoring with clear goals"
+  
+  # ── Tier 3: Sonnet (Requirements & Design) ────────────────
+  
+  business_analyst:
+    model: sonnet
+    rationale: "Requirements gathering is systematic"
+  
+  product_owner:
+    model: sonnet
+    rationale: "Prioritization follows frameworks"
+  
+  ui_ux_designer:
+    model: sonnet
+    rationale: "UI patterns are well-established"
+  
+  ideation:
+    model: sonnet
+    rationale: "Brainstorming with guardrails"
+
+# ════════════════════════════════════════════════════════════
+# VOTER MODEL ASSIGNMENTS
+# ════════════════════════════════════════════════════════════
+
+# Principle: 16 voters provide redundancy, so individual depth less critical
+# Use Sonnet for complex evaluations, Haiku for simple checklists
+
+voters:
+  # ── Sonnet Voters (Complex Evaluation) ────────────────────
+  # These require understanding nuance
+  
+  sonnet:
+    - security           # Subtle vulnerability detection
+    - code_quality       # Maintainability assessment
+    - architecture       # System-level thinking
+    - logic              # Edge case detection
+    - performance        # Algorithmic analysis
+    - scalability        # Growth projection
+  
+  # ── Haiku Voters (Simple Checklists) ──────────────────────
+  # These are more mechanical checks
+  
+  haiku:
+    - completeness       # Is everything there?
+    - clarity            # Is it readable?
+    - documentation      # Are docs present?
+    - standards          # Does it follow conventions?
+    - testability        # Can it be tested?
+    - maintainability    # Is it maintainable? (simpler check)
+    - feasibility        # Is it buildable?
+    - user_value         # Does it meet requirements?
+    - integration        # Does it fit with existing code?
+    - operations         # Is it deployable?
+    - test_coverage      # Are tests adequate?
+
+# ════════════════════════════════════════════════════════════
+# COST ESTIMATES
+# ════════════════════════════════════════════════════════════
+
+# Per-feature cost estimates (5 gates, ~10 tasks)
+
+estimates:
+  # Agent costs (rough tokens per phase)
+  agents:
+    opus_phases: 4        # solutions_architect, data_architect, api_designer, etc.
+    opus_tokens_per_phase: 15000
+    opus_cost_per_phase: 0.45   # 10K in @ $5, 5K out @ $25
+    
+    sonnet_phases: 12     # developer (10 tasks), reviewer, test_writer, etc.
+    sonnet_tokens_per_phase: 8000
+    sonnet_cost_per_phase: 0.12  # 5K in @ $3, 3K out @ $15
+  
+  # Voter costs (per gate)
+  voters:
+    sonnet_voters: 6
+    sonnet_tokens_per_voter: 3000
+    sonnet_cost_per_voter: 0.045
+    
+    haiku_voters: 10
+    haiku_tokens_per_voter: 2000
+    haiku_cost_per_voter: 0.008
+  
+  # Total per feature
+  per_feature:
+    agents: 3.20          # 4 × $0.45 + 12 × $0.12
+    voters_per_gate: 0.35 # 6 × $0.045 + 10 × $0.008
+    voters_total: 1.75    # 5 gates × $0.35
+    
+    total_estimated: 4.95 # agents + voters
+
+# ════════════════════════════════════════════════════════════
+# CONFIGURATION OPTIONS
+# ════════════════════════════════════════════════════════════
+
+options:
+  # Override model for all agents (useful for testing)
+  global_override: null  # Set to "sonnet" to use Sonnet everywhere
+  
+  # Fallback model if primary unavailable
+  fallback_model: sonnet
+  
+  # Enable multi-provider (OpenAI for some voters)
+  multi_provider: false
+  
+  # Cost warning threshold per feature
+  cost_warning_threshold: 10.00
+
+# ════════════════════════════════════════════════════════════
+# ENVIRONMENT OVERRIDES
+# ════════════════════════════════════════════════════════════
+
+# These can be overridden via environment variables:
+#
+# AI_DEV_DEFAULT_MODEL=sonnet           # Force all to use Sonnet
+# AI_DEV_ARCHITECT_MODEL=opus           # Override architect specifically
+# AI_DEV_VOTER_MODEL=haiku              # Force all voters to Haiku
+# AI_DEV_ENABLE_OPENAI=true             # Enable OpenAI for security voter

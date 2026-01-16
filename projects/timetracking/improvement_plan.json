@@ -1,0 +1,588 @@
+{
+  "project_name": "Timetracking",
+  "planned_at": "2026-01-15T16:52:06.848134",
+  "total_items": 9,
+  "critical_count": 1,
+  "quick_wins_count": 1,
+  "ai_opportunities_count": 15,
+  "total_hours": 30.5,
+  "roadmap": [
+    {
+      "id": "R001",
+      "title": "No source directory structure",
+      "description": "Code not organized into src/, lib/, or app/",
+      "category": "architecture",
+      "priority": "medium",
+      "effort_hours": 2,
+      "impact": "medium",
+      "tasks": [
+        "Create src/ directory for application code",
+        "Plan changes",
+        "Update architecture docs"
+      ],
+      "dependencies": [],
+      "affected_files": [],
+      "ai_can_implement": false,
+      "ai_approach": "",
+      "ai_confidence": "",
+      "status": "pending",
+      "finding_id": "F001"
+    },
+    {
+      "id": "R002",
+      "title": "Missing .env.example",
+      "description": "No environment configuration template",
+      "category": "architecture",
+      "priority": "medium",
+      "effort_hours": 0.5,
+      "impact": "medium",
+      "tasks": [
+        "Create .env.example with required variables",
+        "Plan changes",
+        "Update architecture docs"
+      ],
+      "dependencies": [],
+      "affected_files": [],
+      "ai_can_implement": false,
+      "ai_approach": "",
+      "ai_confidence": "",
+      "status": "pending",
+      "finding_id": "F002"
+    },
+    {
+      "id": "R003",
+      "title": "No linter configuration",
+      "description": "No ESLint, Pylint, or Ruff config found",
+      "category": "code_quality",
+      "priority": "medium",
+      "effort_hours": 1,
+      "impact": "medium",
+      "tasks": [
+        "Add linting for consistent code style"
+      ],
+      "dependencies": [],
+      "affected_files": [],
+      "ai_can_implement": true,
+      "ai_approach": "AI can generate optimal lint rules from code patterns",
+      "ai_confidence": "high",
+      "status": "pending",
+      "finding_id": "F003"
+    },
+    {
+      "id": "R004",
+      "title": "Large file: Login.tsx",
+      "description": "File has 519 lines",
+      "category": "code_quality",
+      "priority": "low",
+      "effort_hours": 3,
+      "impact": "low",
+      "tasks": [
+        "Consider splitting into smaller modules"
+      ],
+      "dependencies": [],
+      "affected_files": [
+        "Login.tsx"
+      ],
+      "ai_can_implement": true,
+      "ai_approach": "AI can identify logical split points",
+      "ai_confidence": "high",
+      "status": "pending",
+      "finding_id": "F004"
+    },
+    {
+      "id": "R005",
+      "title": "Large file: ProjectPanel.tsx",
+      "description": "File has 568 lines",
+      "category": "code_quality",
+      "priority": "low",
+      "effort_hours": 3,
+      "impact": "low",
+      "tasks": [
+        "Consider splitting into smaller modules"
+      ],
+      "dependencies": [],
+      "affected_files": [
+        "ProjectPanel.tsx"
+      ],
+      "ai_can_implement": true,
+      "ai_approach": "AI can identify logical split points",
+      "ai_confidence": "high",
+      "status": "pending",
+      "finding_id": "F005"
+    },
+    {
+      "id": "R006",
+      "title": "Large file: Team.tsx",
+      "description": "File has 549 lines",
+      "category": "code_quality",
+      "priority": "low",
+      "effort_hours": 3,
+      "impact": "low",
+      "tasks": [
+        "Consider splitting into smaller modules"
+      ],
+      "dependencies": [],
+      "affected_files": [
+        "Team.tsx"
+      ],
+      "ai_can_implement": true,
+      "ai_approach": "AI can identify logical split points",
+      "ai_confidence": "high",
+      "status": "pending",
+      "finding_id": "F006"
+    },
+    {
+      "id": "R007",
+      "title": "2208 unresolved TODOs",
+      "description": "Large number of TODO/FIXME markers",
+      "category": "tech_debt",
+      "priority": "low",
+      "effort_hours": 4,
+      "impact": "low",
+      "tasks": [
+        "Review and resolve or create tickets"
+      ],
+      "dependencies": [],
+      "affected_files": [],
+      "ai_can_implement": true,
+      "ai_approach": "AI can categorize TODOs and suggest implementations",
+      "ai_confidence": "high",
+      "status": "pending",
+      "finding_id": "F007"
+    },
+    {
+      "id": "R008",
+      "title": "Hardcoded secrets detected",
+      "description": "Found 28 files with potential credentials",
+      "category": "security",
+      "priority": "critical",
+      "effort_hours": 2,
+      "impact": "high",
+      "tasks": [
+        "Move to environment variables, rotate exposed credentials",
+        "Review security implications",
+        "Test for vulnerabilities"
+      ],
+      "dependencies": [],
+      "affected_files": [],
+      "ai_can_implement": true,
+      "ai_approach": "AI can identify and migrate secrets to env vars",
+      "ai_confidence": "high",
+      "status": "pending",
+      "finding_id": "F008"
+    },
+    {
+      "id": "R009",
+      "title": "Inconsistent styling",
+      "description": "Multiple systems: Tailwind, Bootstrap, CSS Modules",
+      "category": "ux_styling",
+      "priority": "medium",
+      "effort_hours": 12,
+      "impact": "medium",
+      "tasks": [
+        "Consolidate to single approach",
+        "Review UX impact",
+        "Test across devices"
+      ],
+      "dependencies": [],
+      "affected_files": [],
+      "ai_can_implement": true,
+      "ai_approach": "AI can migrate styles to unified system",
+      "ai_confidence": "high",
+      "status": "pending",
+      "finding_id": "F009"
+    }
+  ],
+  "ai_opportunities": [
+    {
+      "id": "AI001",
+      "title": "Smart Search with Natural Language",
+      "description": "Allow users to search using conversational queries instead of keywords",
+      "category": "user_value",
+      "user_benefit": "Find information faster with natural language",
+      "business_value": "Increased engagement and user satisfaction",
+      "technical_benefit": "Better search relevance",
+      "approach": "Integrate semantic search with LLM query understanding",
+      "integrations_needed": [
+        "OpenAI/Anthropic API",
+        "Vector database"
+      ],
+      "estimated_hours": 16,
+      "complexity": "medium",
+      "priority": "high",
+      "quick_win": false
+    },
+    {
+      "id": "AI002",
+      "title": "AI-Powered Form Assistance",
+      "description": "Auto-complete and validate form inputs intelligently",
+      "category": "user_value",
+      "user_benefit": "Faster form completion with fewer errors",
+      "business_value": "Higher conversion rates",
+      "technical_benefit": "Better data quality",
+      "approach": "LLM-based field suggestions with validation",
+      "integrations_needed": [
+        "LLM API"
+      ],
+      "estimated_hours": 8,
+      "complexity": "low",
+      "priority": "high",
+      "quick_win": true
+    },
+    {
+      "id": "AI003",
+      "title": "Content Summarization",
+      "description": "Auto-generate summaries of long content or documents",
+      "category": "user_value",
+      "user_benefit": "Quick understanding of key points",
+      "business_value": "Improved user productivity",
+      "technical_benefit": "Simple API integration",
+      "approach": "LLM summarization with configurable length",
+      "integrations_needed": [
+        "LLM API"
+      ],
+      "estimated_hours": 4,
+      "complexity": "low",
+      "priority": "medium",
+      "quick_win": true
+    },
+    {
+      "id": "AI004",
+      "title": "Intelligent Error Messages",
+      "description": "AI analyzes errors and suggests fixes to users",
+      "category": "user_value",
+      "user_benefit": "Self-service problem resolution",
+      "business_value": "Reduced support costs",
+      "technical_benefit": "Better error handling UX",
+      "approach": "Error pattern analysis with LLM suggestions",
+      "integrations_needed": [
+        "LLM API",
+        "Error tracking"
+      ],
+      "estimated_hours": 12,
+      "complexity": "medium",
+      "priority": "medium",
+      "quick_win": false
+    },
+    {
+      "id": "AI005",
+      "title": "Automated Documentation",
+      "description": "Generate and maintain docs from code and usage",
+      "category": "efficiency",
+      "user_benefit": "Always current documentation",
+      "business_value": "Faster onboarding, reduced debt",
+      "technical_benefit": "Docs stay in sync with code",
+      "approach": "AI analyzes code and generates markdown/HTML docs",
+      "integrations_needed": [
+        "LLM API",
+        "Build pipeline"
+      ],
+      "estimated_hours": 12,
+      "complexity": "medium",
+      "priority": "medium",
+      "quick_win": false
+    },
+    {
+      "id": "AI006",
+      "title": "Smart Notifications",
+      "description": "AI determines what to notify users about and when",
+      "category": "user_value",
+      "user_benefit": "Relevant notifications, less noise",
+      "business_value": "Higher engagement rates",
+      "technical_benefit": "Personalization without complex rules",
+      "approach": "ML model for notification relevance scoring",
+      "integrations_needed": [
+        "LLM API",
+        "User analytics"
+      ],
+      "estimated_hours": 20,
+      "complexity": "high",
+      "priority": "low",
+      "quick_win": false
+    },
+    {
+      "id": "AI007",
+      "title": "Code Review Assistant",
+      "description": "AI reviews PRs for issues and suggests improvements",
+      "category": "efficiency",
+      "user_benefit": "Faster, more thorough code review",
+      "business_value": "Higher code quality, fewer bugs",
+      "technical_benefit": "Consistent review standards",
+      "approach": "LLM analyzes diffs and comments on PRs",
+      "integrations_needed": [
+        "GitHub API",
+        "LLM API"
+      ],
+      "estimated_hours": 16,
+      "complexity": "medium",
+      "priority": "high",
+      "quick_win": false
+    },
+    {
+      "id": "AI008",
+      "title": "Personalized Recommendations",
+      "description": "Suggest relevant content/actions based on user behavior",
+      "category": "user_value",
+      "user_benefit": "Discover relevant content proactively",
+      "business_value": "Higher engagement and retention",
+      "technical_benefit": "Better content utilization",
+      "approach": "Collaborative filtering enhanced with LLM",
+      "integrations_needed": [
+        "Analytics",
+        "LLM API",
+        "Vector DB"
+      ],
+      "estimated_hours": 24,
+      "complexity": "high",
+      "priority": "medium",
+      "quick_win": false
+    },
+    {
+      "id": "AI101",
+      "title": "AI Fix: No linter configuration",
+      "description": "AI can generate optimal lint rules from code patterns",
+      "category": "automation",
+      "user_benefit": "Automated improvement",
+      "business_value": "Reduced manual effort",
+      "technical_benefit": "Add linting for consistent code style",
+      "approach": "AI can generate optimal lint rules from code patterns",
+      "integrations_needed": [
+        "AI Coding Assistant"
+      ],
+      "estimated_hours": 0.5,
+      "complexity": "low",
+      "priority": "medium",
+      "quick_win": true
+    },
+    {
+      "id": "AI102",
+      "title": "AI Fix: Large file: Login.tsx",
+      "description": "AI can identify logical split points",
+      "category": "automation",
+      "user_benefit": "Automated improvement",
+      "business_value": "Reduced manual effort",
+      "technical_benefit": "Consider splitting into smaller modules",
+      "approach": "AI can identify logical split points",
+      "integrations_needed": [
+        "AI Coding Assistant"
+      ],
+      "estimated_hours": 1.5,
+      "complexity": "low",
+      "priority": "medium",
+      "quick_win": false
+    },
+    {
+      "id": "AI103",
+      "title": "AI Fix: Large file: ProjectPanel.tsx",
+      "description": "AI can identify logical split points",
+      "category": "automation",
+      "user_benefit": "Automated improvement",
+      "business_value": "Reduced manual effort",
+      "technical_benefit": "Consider splitting into smaller modules",
+      "approach": "AI can identify logical split points",
+      "integrations_needed": [
+        "AI Coding Assistant"
+      ],
+      "estimated_hours": 1.5,
+      "complexity": "low",
+      "priority": "medium",
+      "quick_win": false
+    },
+    {
+      "id": "AI104",
+      "title": "AI Fix: Large file: Team.tsx",
+      "description": "AI can identify logical split points",
+      "category": "automation",
+      "user_benefit": "Automated improvement",
+      "business_value": "Reduced manual effort",
+      "technical_benefit": "Consider splitting into smaller modules",
+      "approach": "AI can identify logical split points",
+      "integrations_needed": [
+        "AI Coding Assistant"
+      ],
+      "estimated_hours": 1.5,
+      "complexity": "low",
+      "priority": "medium",
+      "quick_win": false
+    },
+    {
+      "id": "AI105",
+      "title": "AI Fix: 2208 unresolved TODOs",
+      "description": "AI can categorize TODOs and suggest implementations",
+      "category": "automation",
+      "user_benefit": "Automated improvement",
+      "business_value": "Reduced manual effort",
+      "technical_benefit": "Review and resolve or create tickets",
+      "approach": "AI can categorize TODOs and suggest implementations",
+      "integrations_needed": [
+        "AI Coding Assistant"
+      ],
+      "estimated_hours": 2.0,
+      "complexity": "medium",
+      "priority": "medium",
+      "quick_win": false
+    },
+    {
+      "id": "AI106",
+      "title": "AI Fix: Hardcoded secrets detected",
+      "description": "AI can identify and migrate secrets to env vars",
+      "category": "automation",
+      "user_benefit": "Automated improvement",
+      "business_value": "Reduced manual effort",
+      "technical_benefit": "Move to environment variables, rotate exposed credentials",
+      "approach": "AI can identify and migrate secrets to env vars",
+      "integrations_needed": [
+        "AI Coding Assistant"
+      ],
+      "estimated_hours": 1.0,
+      "complexity": "low",
+      "priority": "high",
+      "quick_win": true
+    },
+    {
+      "id": "AI107",
+      "title": "AI Fix: Inconsistent styling",
+      "description": "AI can migrate styles to unified system",
+      "category": "automation",
+      "user_benefit": "Automated improvement",
+      "business_value": "Reduced manual effort",
+      "technical_benefit": "Consolidate to single approach",
+      "approach": "AI can migrate styles to unified system",
+      "integrations_needed": [
+        "AI Coding Assistant"
+      ],
+      "estimated_hours": 6.0,
+      "complexity": "medium",
+      "priority": "medium",
+      "quick_win": false
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "name": "Critical Fixes",
+      "description": "Address all critical issues immediately",
+      "target": "Immediate",
+      "items": [
+        "R008"
+      ],
+      "estimated_hours": 2,
+      "deliverables": [
+        "All critical issues resolved",
+        "Security vulnerabilities patched"
+      ],
+      "success_criteria": [
+        "No critical findings",
+        "All tests passing"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "M2",
+      "name": "Quick Wins",
+      "description": "Low-effort improvements for fast progress",
+      "target": "Week 1",
+      "items": [
+        "R001",
+        "R002",
+        "R003"
+      ],
+      "estimated_hours": 3.5,
+      "deliverables": [
+        "Visible improvements",
+        "Team momentum"
+      ],
+      "success_criteria": [
+        "All quick wins completed"
+      ],
+      "dependencies": [
+        "M1"
+      ]
+    },
+    {
+      "id": "M3",
+      "name": "UX Improvements",
+      "description": "Enhance navigation, styling, and accessibility",
+      "target": "Week 2-3",
+      "items": [
+        "R009"
+      ],
+      "estimated_hours": 12,
+      "deliverables": [
+        "Improved accessibility score",
+        "Consistent styling",
+        "Better navigation"
+      ],
+      "success_criteria": [
+        "Accessibility audit passing",
+        "Style guide implemented"
+      ],
+      "dependencies": [
+        "M2"
+      ]
+    },
+    {
+      "id": "M4",
+      "name": "Code Quality",
+      "description": "Improve code organization and maintainability",
+      "target": "Week 3-4",
+      "items": [
+        "R004",
+        "R005",
+        "R006",
+        "R007"
+      ],
+      "estimated_hours": 13,
+      "deliverables": [
+        "Linting configured",
+        "Code reorganized",
+        "Tech debt reduced"
+      ],
+      "success_criteria": [
+        "Linting passing",
+        "Architecture documented"
+      ],
+      "dependencies": [
+        "M3"
+      ]
+    },
+    {
+      "id": "M6",
+      "name": "AI Enhancements",
+      "description": "Implement AI-powered improvements",
+      "target": "Week 5+",
+      "items": [
+        "R003",
+        "R004",
+        "R005",
+        "R006",
+        "R007"
+      ],
+      "estimated_hours": 14,
+      "deliverables": [
+        "AI features implemented"
+      ],
+      "success_criteria": [
+        "Features functional",
+        "User feedback positive"
+      ],
+      "dependencies": [
+        "M4"
+      ]
+    }
+  ],
+  "recommended_approach": "URGENT: Address 1 critical issues before other work. Focus on security and stability.",
+  "risk_factors": [],
+  "dependencies": [
+    "User analytics",
+    "GitHub API",
+    "OpenAI/Anthropic API",
+    "Analytics",
+    "AI Coding Assistant",
+    "Build pipeline",
+    "Vector database",
+    "LLM API",
+    "Vector DB",
+    "Error tracking"
+  ]
+}

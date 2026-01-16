@@ -1,0 +1,27 @@
+{
+  "sessions": [
+    {
+      "session_id": "2026-01-16_085415",
+      "project_id": "timetracking",
+      "started_at": "2026-01-16T08:54:15.975549",
+      "file": "session_2026-01-16_085415.jsonl",
+      "ended_at": "2026-01-16T08:58:54.587644",
+      "event_count": 4,
+      "agent_calls": 1,
+      "total_cost_usd": 0.0,
+      "total_tokens": 0
+    },
+    {
+      "session_id": "2026-01-16_084916",
+      "project_id": "timetracking",
+      "started_at": "2026-01-16T08:49:16.915350",
+      "file": "session_2026-01-16_084916.jsonl"
+    },
+    {
+      "session_id": "2026-01-15_171748",
+      "project_id": "timetracking",
+      "started_at": "2026-01-15T17:17:48.714943",
+      "file": "session_2026-01-15_171748.jsonl"
+    }
+  ]
+}

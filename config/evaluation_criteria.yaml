@@ -1,0 +1,183 @@
+# Evaluation Criteria Configuration
+# Defines how projects are scored across different dimensions
+
+scoring:
+  # Weights for overall score calculation
+  weights:
+    code_quality: 1.0
+    test_coverage: 1.0
+    security: 1.2      # Slightly higher weight
+    dependencies: 0.8
+    documentation: 0.7
+    architecture: 1.0
+
+thresholds:
+  # Score thresholds for status levels
+  excellent: 80
+  good: 60
+  warning: 40
+  critical: 0
+
+categories:
+  code_quality:
+    name: "Code Quality"
+    description: "Code organization, patterns, and maintainability"
+    checks:
+      - name: "large_files"
+        description: "Files over 500 lines"
+        severity: "medium"
+        penalty: 5
+        max_penalty: 20
+        
+      - name: "god_classes"
+        description: "Files over 1000 lines"
+        severity: "high"
+        penalty: 10
+        max_penalty: 30
+        
+      - name: "typescript_adoption"
+        description: "TypeScript usage"
+        severity: "low"
+        penalty: 10
+        
+      - name: "linting_config"
+        description: "ESLint/Prettier configuration"
+        severity: "low"
+        penalty: 10
+        
+  test_coverage:
+    name: "Test Coverage"
+    description: "Automated testing presence and coverage"
+    base_score: 50
+    checks:
+      - name: "no_tests"
+        description: "No test files found"
+        severity: "critical"
+        score_override: 10
+        
+      - name: "low_coverage"
+        description: "Test file ratio < 10%"
+        severity: "high"
+        score_override: 30
+        
+      - name: "medium_coverage"
+        description: "Test file ratio 10-30%"
+        severity: "medium"
+        score_override: 50
+        
+      - name: "good_coverage"
+        description: "Test file ratio 30-50%"
+        severity: "low"
+        score_override: 70
+        
+  security:
+    name: "Security"
+    description: "Security posture and vulnerability exposure"
+    base_score: 80
+    checks:
+      - name: "env_exposed"
+        description: ".env file not in .gitignore"
+        severity: "high"
+        penalty: 20
+        
+      - name: "hardcoded_secrets"
+        description: "Potential hardcoded secrets"
+        severity: "high"
+        penalty: 5
+        per_occurrence: true
+        
+      - name: "no_auth"
+        description: "No authentication implementation found"
+        severity: "medium"
+        penalty: 10
+        
+  dependencies:
+    name: "Dependencies"
+    description: "Package health and currency"
+    base_score: 70
+    checks:
+      - name: "outdated_major"
+        description: "Major version outdated"
+        severity: "medium"
+        penalty: 15
+        
+      - name: "no_lock_file"
+        description: "Missing package lock file"
+        severity: "medium"
+        penalty: 10
+        
+      - name: "unpinned_versions"
+        description: "Unpinned dependency versions"
+        severity: "low"
+        penalty: 10
+        
+  documentation:
+    name: "Documentation"
+    description: "Project documentation completeness"
+    base_score: 50
+    checks:
+      - name: "has_readme"
+        description: "README.md exists"
+        severity: "medium"
+        bonus: 20
+        
+      - name: "readme_complete"
+        description: "README has substantial content"
+        severity: "low"
+        bonus: 10
+        
+      - name: "no_readme"
+        description: "No README found"
+        severity: "medium"
+        penalty: 20
+        
+      - name: "has_api_docs"
+        description: "API documentation exists"
+        severity: "low"
+        bonus: 15
+        
+      - name: "has_changelog"
+        description: "CHANGELOG.md exists"
+        severity: "low"
+        bonus: 10
+        
+  architecture:
+    name: "Architecture"
+    description: "Code structure and organization"
+    base_score: 70
+    checks:
+      - name: "has_src_dir"
+        description: "Organized src/ directory"
+        severity: "low"
+        penalty: 10
+        
+      - name: "too_many_entry_points"
+        description: "More than 5 entry points"
+        severity: "low"
+        penalty: 10
+        
+      - name: "config_scattered"
+        description: "Config files scattered"
+        severity: "low"
+        penalty: 5
+
+severity_definitions:
+  critical:
+    description: "Active security risk or production instability"
+    action_timeline: "Immediate"
+    color: "red"
+    
+  high:
+    description: "Significant risk or major impediment"
+    action_timeline: "This sprint"
+    color: "orange"
+    
+  medium:
+    description: "Moderate impact on velocity/quality"
+    action_timeline: "This quarter"
+    color: "yellow"
+    
+  low:
+    description: "Minor inconvenience"
+    action_timeline: "When convenient"
+    color: "blue"

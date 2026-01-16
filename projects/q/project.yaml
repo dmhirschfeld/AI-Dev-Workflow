@@ -1,0 +1,28 @@
+project:
+  id: q
+  name: q
+  type: new
+  description: ''
+  created: '2026-01-15'
+  status: active
+  stage: ideation
+tech_stack:
+  name: React + Node + PostgreSQL
+  frontend:
+  - React 19
+  - TypeScript
+  - Vite
+  backend:
+  - Node.js 20
+  - Express
+  - TypeScript
+  database:
+  - PostgreSQL
+  validation:
+  - Zod
+  testing:
+  - Playwright
+  deployment:
+  - Google Cloud Run
+features: []
+history: []

@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assessment Report: Unknown</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; padding: 20px; }
+h1 { text-align: center; margin-bottom: 30px; color: #f1f5f9; }
+h2 { color: #e2e8f0; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #334155; }
+h3 { color: #cbd5e1; margin: 20px 0 15px; }
+.section { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+.muted { color: #94a3b8; margin-bottom: 16px; }
+
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; }
+.card { background: #0f172a; border-radius: 10px; padding: 20px; text-align: center; border: 2px solid #334155; }
+.card.critical { border-color: #ef4444; }
+.card.warning { border-color: #f59e0b; }
+.card.good { border-color: #10b981; }
+.card.excellent { border-color: #3b82f6; }
+.card.ai { border-color: #8b5cf6; }
+.big-number { font-size: 2.5rem; font-weight: 700; color: #f1f5f9; }
+.label { color: #94a3b8; font-size: 0.9rem; margin-top: 5px; }
+.status { margin-top: 8px; font-weight: 600; text-transform: uppercase; font-size: 0.85rem; }
+.card.critical .status { color: #ef4444; }
+.card.warning .status { color: #f59e0b; }
+.card.good .status { color: #10b981; }
+.card.excellent .status { color: #3b82f6; }
+
+.categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.category-card { background: #0f172a; border-radius: 10px; padding: 16px; }
+.cat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: 600; }
+.cat-score { font-size: 1.4rem; padding: 4px 12px; border-radius: 6px; }
+.cat-score.critical { background: #7f1d1d; color: #fca5a5; }
+.cat-score.warning { background: #78350f; color: #fcd34d; }
+.cat-score.good { background: #064e3b; color: #6ee7b7; }
+.cat-score.excellent { background: #1e3a8a; color: #93c5fd; }
+.progress { height: 6px; background: #334155; border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+.bar { height: 100%; border-radius: 3px; }
+.bar.critical { background: #ef4444; }
+.bar.warning { background: #f59e0b; }
+.bar.good { background: #10b981; }
+.bar.excellent { background: #3b82f6; }
+.cat-summary { color: #94a3b8; font-size: 0.9rem; margin-bottom: 12px; }
+.cat-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; }
+.strengths ul, .weaknesses ul { margin-left: 16px; color: #94a3b8; }
+.strengths li { color: #10b981; }
+.weaknesses li { color: #f59e0b; }
+.none { color: #64748b !important; }
+
+.findings { display: flex; flex-direction: column; gap: 12px; }
+.finding { background: #0f172a; border-radius: 10px; border-left: 4px solid #334155; }
+.finding.critical { border-left-color: #ef4444; }
+.finding.high { border-left-color: #f59e0b; }
+.finding.medium { border-left-color: #3b82f6; }
+.finding.low { border-left-color: #10b981; }
+.f-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(0,0,0,0.3); }
+.f-id { font-family: monospace; color: #64748b; }
+.f-title { flex: 1; font-weight: 600; }
+.f-body { padding: 16px; }
+.f-body p { color: #cbd5e1; margin-bottom: 10px; }
+.f-loc { color: #64748b; font-size: 0.85rem; margin-bottom: 8px; }
+.f-impact, .f-rec { font-size: 0.9rem; margin-bottom: 8px; color: #94a3b8; }
+.f-meta { display: flex; gap: 16px; font-size: 0.85rem; color: #64748b; margin-top: 12px; }
+.f-ai { margin-top: 12px; padding: 12px; background: rgba(139,92,246,0.1); border-radius: 6px; border: 1px solid rgba(139,92,246,0.3); color: #c4b5fd; }
+
+.badge { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+.badge.critical { background: #7f1d1d; color: #fca5a5; }
+.badge.high { background: #78350f; color: #fcd34d; }
+.badge.medium { background: #1e3a8a; color: #93c5fd; }
+.badge.low { background: #064e3b; color: #6ee7b7; }
+.badge.quick { background: #059669; color: white; }
+
+.findings-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.findings-table th { text-align: left; padding: 12px; background: #0f172a; border-bottom: 2px solid #334155; }
+.findings-table td { padding: 10px 12px; border-bottom: 1px solid #334155; }
+.findings-table tr:hover { background: rgba(255,255,255,0.02); }
+
+.recommendation { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 20px; margin-top: 20px; }
+.recommendation h3 { color: #60a5fa; margin-bottom: 10px; }
+
+.milestones { display: flex; flex-direction: column; gap: 16px; }
+.milestone { background: #0f172a; border-radius: 10px; padding: 20px; }
+.m-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.m-id { background: #3b82f6; color: white; padding: 4px 12px; border-radius: 6px; font-weight: 600; }
+.m-name { flex: 1; font-size: 1.1rem; font-weight: 600; }
+.m-target { color: #94a3b8; }
+.m-desc { color: #94a3b8; margin-bottom: 12px; }
+.m-stats { display: flex; gap: 20px; font-size: 0.9rem; color: #64748b; margin-bottom: 12px; }
+.m-deliverables { font-size: 0.9rem; color: #94a3b8; }
+
+.roadmap-items { display: flex; flex-direction: column; gap: 12px; }
+.roadmap-card { background: #0f172a; border-radius: 10px; border: 1px solid #334155; }
+.roadmap-card.ai-assisted { border-color: rgba(139,92,246,0.5); }
+.r-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(0,0,0,0.3); }
+.r-id { font-family: monospace; color: #64748b; }
+.r-title { flex: 1; font-weight: 600; }
+.r-body { padding: 16px; }
+.r-body p { color: #cbd5e1; margin-bottom: 12px; }
+.r-tasks ul { margin: 8px 0 12px 20px; color: #94a3b8; }
+.r-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.85rem; color: #64748b; }
+.ai-badge { background: rgba(139,92,246,0.2); color: #c4b5fd; padding: 2px 8px; border-radius: 4px; }
+.r-ai { margin-top: 12px; padding: 12px; background: rgba(139,92,246,0.1); border-radius: 6px; color: #c4b5fd; font-size: 0.9rem; }
+
+.ai-bg { background: linear-gradient(135deg, #1e293b 0%, #1e1b4b 100%); }
+.warning-bg { background: linear-gradient(135deg, #1e293b 0%, #422006 100%); }
+.critical-bg { background: linear-gradient(135deg, #1e293b 0%, #450a0a 100%); }
+
+.ai-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 16px; }
+.ai-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 20px; border: 1px solid rgba(139,92,246,0.3); }
+.ai-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.ai-id { background: #8b5cf6; color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; }
+.ai-title { flex: 1; font-weight: 600; }
+.ai-desc { color: #94a3b8; margin-bottom: 12px; }
+.ai-value { font-size: 0.9rem; color: #94a3b8; margin-bottom: 6px; }
+.ai-approach { font-size: 0.9rem; color: #64748b; margin: 12px 0; }
+.ai-meta { display: flex; gap: 12px; margin-top: 12px; }
+
+.footer { text-align: center; color: #64748b; font-size: 0.85rem; margin-top: 40px; padding-top: 20px; border-top: 1px solid #334155; }
+
+@media (max-width: 768px) {
+    .categories, .ai-grid { grid-template-columns: 1fr; }
+    .cat-lists { grid-template-columns: 1fr; }
+}
+</style>
+</head><body>
+<h1>Assessment Report: Unknown</h1>
+
+        <div class="section">
+            <h2>📊 Executive Summary</h2>
+            <div class="summary-grid">
+                <div class="card good">
+                    <div class="big-number">69</div>
+                    <div class="label">Overall Score</div>
+                    <div class="status">GOOD</div>
+                </div>
+                <div class="card">
+                    <div class="big-number">10</div>
+                    <div class="label">Total Findings</div>
+                </div>
+                <div class="card critical">
+                    <div class="big-number">1</div>
+                    <div class="label">Critical</div>
+                </div>
+                <div class="card warning">
+                    <div class="big-number">1</div>
+                    <div class="label">High Priority</div>
+                </div>
+                <div class="card ai">
+                    <div class="big-number">8</div>
+                    <div class="label">AI Can Fix</div>
+                </div>
+            </div>
+        </div>
+        <div class="section"><h2>📈 Category Scores</h2><div class="categories">
+        <div class="category-card">
+            <div class="cat-header">
+                <span>🏗️ Architecture</span>
+                <span class="cat-score good">65</span>
+            </div>
+            <div class="progress"><div class="bar good" style="width:65%"></div></div>
+            <div class="cat-summary">1 strengths, 2 issues</div>
+            <div class="cat-lists">
+                <div class="strengths">
+                    <strong>✓ Strengths</strong>
+                    <ul><li>UI and business logic separated</li></ul>
+                </div>
+                <div class="weaknesses">
+                    <strong>✗ Issues</strong>
+                    <ul><li>No organized source directory</li><li>No configuration management</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="cat-header">
+                <span>💎 Code Quality</span>
+                <span class="cat-score warning">55</span>
+            </div>
+            <div class="progress"><div class="bar warning" style="width:55%"></div></div>
+            <div class="cat-summary">Code quality analysis complete</div>
+            <div class="cat-lists">
+                <div class="strengths">
+                    <strong>✓ Strengths</strong>
+                    <ul><li>TypeScript for type safety</li></ul>
+                </div>
+                <div class="weaknesses">
+                    <strong>✗ Issues</strong>
+                    <ul><li>No linting</li><li>502 files over 500 lines</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="cat-header">
+                <span>📦 Tech Debt</span>
+                <span class="cat-score warning">55</span>
+            </div>
+            <div class="progress"><div class="bar warning" style="width:55%"></div></div>
+            <div class="cat-summary">Tech debt analysis complete</div>
+            <div class="cat-lists">
+                <div class="strengths">
+                    <strong>✓ Strengths</strong>
+                    <ul><li class="none">None identified</li></ul>
+                </div>
+                <div class="weaknesses">
+                    <strong>✗ Issues</strong>
+                    <ul><li>2208 TODO/FIXME comments</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="cat-header">
+                <span>🔒 Security</span>
+                <span class="cat-score good">60</span>
+            </div>
+            <div class="progress"><div class="bar good" style="width:60%"></div></div>
+            <div class="cat-summary">Security analysis complete</div>
+            <div class="cat-lists">
+                <div class="strengths">
+                    <strong>✓ Strengths</strong>
+                    <ul><li>.env excluded from git</li><li>Authentication library detected</li></ul>
+                </div>
+                <div class="weaknesses">
+                    <strong>✗ Issues</strong>
+                    <ul><li>28 potential hardcoded secrets</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="cat-header">
+                <span>🧭 Navigation</span>
+                <span class="cat-score excellent">90</span>
+            </div>
+            <div class="progress"><div class="bar excellent" style="width:90%"></div></div>
+            <div class="cat-summary">Navigation UX analysis complete</div>
+            <div class="cat-lists">
+                <div class="strengths">
+                    <strong>✓ Strengths</strong>
+                    <ul><li>Router implementation present</li><li>Navigation components present</li><li>Breadcrumb navigation</li></ul>
+                </div>
+                <div class="weaknesses">
+                    <strong>✗ Issues</strong>
+                    <ul><li class="none">None identified</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="cat-header">
+                <span>🎨 Styling</span>
+                <span class="cat-score excellent">85</span>
+            </div>
+            <div class="progress"><div class="bar excellent" style="width:85%"></div></div>
+            <div class="cat-summary">Styling analysis complete</div>
+            <div class="cat-lists">
+                <div class="strengths">
+                    <strong>✓ Strengths</strong>
+                    <ul><li>Design tokens/CSS variables</li><li>Dark mode support</li><li>Responsive breakpoints</li></ul>
+                </div>
+                <div class="weaknesses">
+                    <strong>✗ Issues</strong>
+                    <ul><li>Mixed: Tailwind, Bootstrap, CSS Modules</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="cat-header">
+                <span>♿ Accessibility</span>
+                <span class="cat-score excellent">95</span>
+            </div>
+            <div class="progress"><div class="bar excellent" style="width:95%"></div></div>
+            <div class="cat-summary">Accessibility analysis complete</div>
+            <div class="cat-lists">
+                <div class="strengths">
+                    <strong>✓ Strengths</strong>
+                    <ul><li>ARIA attributes used</li><li>Image alt text present</li><li>Semantic HTML used</li></ul>
+                </div>
+                <div class="weaknesses">
+                    <strong>✗ Issues</strong>
+                    <ul><li class="none">None identified</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="cat-header">
+                <span>⚡ Performance</span>
+                <span class="cat-score excellent">95</span>
+            </div>
+            <div class="progress"><div class="bar excellent" style="width:95%"></div></div>
+            <div class="cat-summary">Performance analysis complete</div>
+            <div class="cat-lists">
+                <div class="strengths">
+                    <strong>✓ Strengths</strong>
+                    <ul><li>Code splitting/lazy loading</li><li>Memoization used</li><li>Image optimization</li></ul>
+                </div>
+                <div class="weaknesses">
+                    <strong>✗ Issues</strong>
+                    <ul><li class="none">None identified</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="cat-header">
+                <span>🧪 Testing</span>
+                <span class="cat-score critical">30</span>
+            </div>
+            <div class="progress"><div class="bar critical" style="width:30%"></div></div>
+            <div class="cat-summary">Testing analysis complete</div>
+            <div class="cat-lists">
+                <div class="strengths">
+                    <strong>✓ Strengths</strong>
+                    <ul><li class="none">None identified</li></ul>
+                </div>
+                <div class="weaknesses">
+                    <strong>✗ Issues</strong>
+                    <ul><li>No tests</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-card">
+            <div class="cat-header">
+                <span>📚 Documentation</span>
+                <span class="cat-score excellent">90</span>
+            </div>
+            <div class="progress"><div class="bar excellent" style="width:90%"></div></div>
+            <div class="cat-summary">Documentation analysis complete</div>
+            <div class="cat-lists">
+                <div class="strengths">
+                    <strong>✓ Strengths</strong>
+                    <ul><li>README present</li><li>API documentation</li><li>Code comments present</li></ul>
+                </div>
+                <div class="weaknesses">
+                    <strong>✗ Issues</strong>
+                    <ul><li class="none">None identified</li></ul>
+                </div>
+            </div>
+        </div>
+        </div></div><div class="section critical-bg"><h2>🚨 Critical Findings</h2><p class="muted">These must be addressed immediately.</p><div class="findings">
+        <div class="finding critical">
+            <div class="f-header">
+                <span class="f-id">F008</span>
+                <span class="f-title">Hardcoded secrets detected</span>
+                <span class="badge critical">critical</span>
+            </div>
+            <div class="f-body">
+                <p>Found 28 files with potential credentials</p>
+                
+                <div class="f-impact"><strong>Impact:</strong> Credentials could be exposed in git history</div>
+                <div class="f-rec"><strong>Fix:</strong> Move to environment variables, rotate exposed credentials</div>
+                <div class="f-meta">
+                    <span>Security</span>
+                    <span>⏱️ 2h</span>
+                </div>
+        </div></div></div></div><div class="section"><h2>⚠️ High Priority</h2><div class="findings">
+        <div class="finding high">
+            <div class="f-header">
+                <span class="f-id">F010</span>
+                <span class="f-title">No test coverage</span>
+                <span class="badge high">high</span>
+            </div>
+            <div class="f-body">
+                <p>No test files found</p>
+                
+                <div class="f-impact"><strong>Impact:</strong> High risk of regressions</div>
+                <div class="f-rec"><strong>Fix:</strong> Implement testing starting with critical paths</div>
+                <div class="f-meta">
+                    <span>Testing</span>
+                    <span>⏱️ 20h</span>
+                </div>
+        </div></div></div></div><div class="section ai-bg"><h2>🤖 AI Can Help</h2><p class="muted">These issues can be addressed with AI assistance.</p><div class="findings">
+        <div class="finding medium">
+            <div class="f-header">
+                <span class="f-id">F003</span>
+                <span class="f-title">No linter configuration</span>
+                <span class="badge medium">medium</span>
+            </div>
+            <div class="f-body">
+                <p>No ESLint, Pylint, or Ruff config found</p>
+                
+                
+                <div class="f-rec"><strong>Fix:</strong> Add linting for consistent code style</div>
+                <div class="f-meta">
+                    <span>Code Quality</span>
+                    <span>⏱️ 1h</span>
+                </div>
+        <div class="f-ai">🤖 <strong>AI Approach:</strong> AI can generate optimal lint rules from code patterns</div></div></div>
+        <div class="finding low">
+            <div class="f-header">
+                <span class="f-id">F004</span>
+                <span class="f-title">Large file: Login.tsx</span>
+                <span class="badge low">low</span>
+            </div>
+            <div class="f-body">
+                <p>File has 519 lines</p>
+                <div class="f-loc">📍 Login.tsx</div>
+                
+                <div class="f-rec"><strong>Fix:</strong> Consider splitting into smaller modules</div>
+                <div class="f-meta">
+                    <span>Code Quality</span>
+                    <span>⏱️ 3h</span>
+                </div>
+        <div class="f-ai">🤖 <strong>AI Approach:</strong> AI can identify logical split points</div></div></div>
+        <div class="finding low">
+            <div class="f-header">
+                <span class="f-id">F005</span>
+                <span class="f-title">Large file: ProjectPanel.tsx</span>
+                <span class="badge low">low</span>
+            </div>
+            <div class="f-body">
+                <p>File has 568 lines</p>
+                <div class="f-loc">📍 ProjectPanel.tsx</div>
+                
+                <div class="f-rec"><strong>Fix:</strong> Consider splitting into smaller modules</div>
+                <div class="f-meta">
+                    <span>Code Quality</span>
+                    <span>⏱️ 3h</span>
+                </div>
+        <div class="f-ai">🤖 <strong>AI Approach:</strong> AI can identify logical split points</div></div></div>
+        <div class="finding low">
+            <div class="f-header">
+                <span class="f-id">F006</span>
+                <span class="f-title">Large file: Team.tsx</span>
+                <span class="badge low">low</span>
+            </div>
+            <div class="f-body">
+                <p>File has 549 lines</p>
+                <div class="f-loc">📍 Team.tsx</div>
+                
+                <div class="f-rec"><strong>Fix:</strong> Consider splitting into smaller modules</div>
+                <div class="f-meta">
+                    <span>Code Quality</span>
+                    <span>⏱️ 3h</span>
+                </div>
+        <div class="f-ai">🤖 <strong>AI Approach:</strong> AI can identify logical split points</div></div></div>
+        <div class="finding low">
+            <div class="f-header">
+                <span class="f-id">F007</span>
+                <span class="f-title">2208 unresolved TODOs</span>
+                <span class="badge low">low</span>
+            </div>
+            <div class="f-body">
+                <p>Large number of TODO/FIXME markers</p>
+                
+                
+                <div class="f-rec"><strong>Fix:</strong> Review and resolve or create tickets</div>
+                <div class="f-meta">
+                    <span>Tech Debt</span>
+                    <span>⏱️ 4h</span>
+                </div>
+        <div class="f-ai">🤖 <strong>AI Approach:</strong> AI can categorize TODOs and suggest implementations</div></div></div>
+        <div class="finding critical">
+            <div class="f-header">
+                <span class="f-id">F008</span>
+                <span class="f-title">Hardcoded secrets detected</span>
+                <span class="badge critical">critical</span>
+            </div>
+            <div class="f-body">
+                <p>Found 28 files with potential credentials</p>
+                
+                <div class="f-impact"><strong>Impact:</strong> Credentials could be exposed in git history</div>
+                <div class="f-rec"><strong>Fix:</strong> Move to environment variables, rotate exposed credentials</div>
+                <div class="f-meta">
+                    <span>Security</span>
+                    <span>⏱️ 2h</span>
+                </div>
+        <div class="f-ai">🤖 <strong>AI Approach:</strong> AI can identify and migrate secrets to env vars</div></div></div>
+        <div class="finding medium">
+            <div class="f-header">
+                <span class="f-id">F009</span>
+                <span class="f-title">Inconsistent styling</span>
+                <span class="badge medium">medium</span>
+            </div>
+            <div class="f-body">
+                <p>Multiple systems: Tailwind, Bootstrap, CSS Modules</p>
+                
+                <div class="f-impact"><strong>Impact:</strong> Inconsistent look, harder maintenance</div>
+                <div class="f-rec"><strong>Fix:</strong> Consolidate to single approach</div>
+                <div class="f-meta">
+                    <span>Ux Styling</span>
+                    <span>⏱️ 12h</span>
+                </div>
+        <div class="f-ai">🤖 <strong>AI Approach:</strong> AI can migrate styles to unified system</div></div></div>
+        <div class="finding high">
+            <div class="f-header">
+                <span class="f-id">F010</span>
+                <span class="f-title">No test coverage</span>
+                <span class="badge high">high</span>
+            </div>
+            <div class="f-body">
+                <p>No test files found</p>
+                
+                <div class="f-impact"><strong>Impact:</strong> High risk of regressions</div>
+                <div class="f-rec"><strong>Fix:</strong> Implement testing starting with critical paths</div>
+                <div class="f-meta">
+                    <span>Testing</span>
+                    <span>⏱️ 20h</span>
+                </div>
+        <div class="f-ai">🤖 <strong>AI Approach:</strong> AI can generate initial test suite</div></div></div></div></div><div class="section"><h2>📋 All Findings</h2><table class="findings-table"><thead><tr><th>ID</th><th>Category</th><th>Severity</th><th>Title</th><th>Effort</th><th>AI</th></tr></thead><tbody><tr class="medium">
+                <td>F001</td>
+                <td>Architecture</td>
+                <td><span class="badge medium">medium</span></td>
+                <td>No source directory structure</td>
+                <td>2h</td>
+                <td></td>
+            </tr><tr class="medium">
+                <td>F002</td>
+                <td>Architecture</td>
+                <td><span class="badge medium">medium</span></td>
+                <td>Missing .env.example</td>
+                <td>0.5h</td>
+                <td></td>
+            </tr><tr class="medium">
+                <td>F003</td>
+                <td>Code Quality</td>
+                <td><span class="badge medium">medium</span></td>
+                <td>No linter configuration</td>
+                <td>1h</td>
+                <td>🤖</td>
+            </tr><tr class="low">
+                <td>F004</td>
+                <td>Code Quality</td>
+                <td><span class="badge low">low</span></td>
+                <td>Large file: Login.tsx</td>
+                <td>3h</td>
+                <td>🤖</td>
+            </tr><tr class="low">
+                <td>F005</td>
+                <td>Code Quality</td>
+                <td><span class="badge low">low</span></td>
+                <td>Large file: ProjectPanel.tsx</td>
+                <td>3h</td>
+                <td>🤖</td>
+            </tr><tr class="low">
+                <td>F006</td>
+                <td>Code Quality</td>
+                <td><span class="badge low">low</span></td>
+                <td>Large file: Team.tsx</td>
+                <td>3h</td>
+                <td>🤖</td>
+            </tr><tr class="low">
+                <td>F007</td>
+                <td>Tech Debt</td>
+                <td><span class="badge low">low</span></td>
+                <td>2208 unresolved TODOs</td>
+                <td>4h</td>
+                <td>🤖</td>
+            </tr><tr class="critical">
+                <td>F008</td>
+                <td>Security</td>
+                <td><span class="badge critical">critical</span></td>
+                <td>Hardcoded secrets detected</td>
+                <td>2h</td>
+                <td>🤖</td>
+            </tr><tr class="medium">
+                <td>F009</td>
+                <td>Ux Styling</td>
+                <td><span class="badge medium">medium</span></td>
+                <td>Inconsistent styling</td>
+                <td>12h</td>
+                <td>🤖</td>
+            </tr><tr class="high">
+                <td>F010</td>
+                <td>Testing</td>
+                <td><span class="badge high">high</span></td>
+                <td>No test coverage</td>
+                <td>20h</td>
+                <td>🤖</td>
+            </tr></tbody></table></div>
+<div class="footer">
+    Generated by AI-Dev-Workflow on 2026-01-16<br>
+    Phase 1 Assessment & Phase 2 Planning Reports
+</div>
+</body></html>

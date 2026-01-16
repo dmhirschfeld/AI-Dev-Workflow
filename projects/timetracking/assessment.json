@@ -1,0 +1,434 @@
+{
+  "project_name": "Unknown",
+  "assessed_at": "2026-01-16T08:54:57.014399",
+  "source_path": "C:\\Users\\david\\TimeTracking",
+  "overall_score": 69,
+  "overall_status": "good",
+  "architecture": {
+    "category": "architecture",
+    "score": 65,
+    "status": "good",
+    "summary": "1 strengths, 2 issues",
+    "findings": [
+      {
+        "id": "F001",
+        "category": "architecture",
+        "severity": "medium",
+        "title": "No source directory structure",
+        "description": "Code not organized into src/, lib/, or app/",
+        "location": "",
+        "evidence": "",
+        "impact": "",
+        "recommendation": "Create src/ directory for application code",
+        "effort_hours": 2,
+        "ai_can_fix": false,
+        "ai_approach": ""
+      },
+      {
+        "id": "F002",
+        "category": "architecture",
+        "severity": "medium",
+        "title": "Missing .env.example",
+        "description": "No environment configuration template",
+        "location": "",
+        "evidence": "",
+        "impact": "",
+        "recommendation": "Create .env.example with required variables",
+        "effort_hours": 0.5,
+        "ai_can_fix": false,
+        "ai_approach": ""
+      }
+    ],
+    "strengths": [
+      "UI and business logic separated"
+    ],
+    "weaknesses": [
+      "No organized source directory",
+      "No configuration management"
+    ]
+  },
+  "code_quality": {
+    "category": "code_quality",
+    "score": 55,
+    "status": "warning",
+    "summary": "Code quality analysis complete",
+    "findings": [
+      {
+        "id": "F003",
+        "category": "code_quality",
+        "severity": "medium",
+        "title": "No linter configuration",
+        "description": "No ESLint, Pylint, or Ruff config found",
+        "location": "",
+        "evidence": "",
+        "impact": "",
+        "recommendation": "Add linting for consistent code style",
+        "effort_hours": 1,
+        "ai_can_fix": true,
+        "ai_approach": "AI can generate optimal lint rules from code patterns"
+      },
+      {
+        "id": "F004",
+        "category": "code_quality",
+        "severity": "low",
+        "title": "Large file: Login.tsx",
+        "description": "File has 519 lines",
+        "location": "Login.tsx",
+        "evidence": "",
+        "impact": "",
+        "recommendation": "Consider splitting into smaller modules",
+        "effort_hours": 3,
+        "ai_can_fix": true,
+        "ai_approach": "AI can identify logical split points"
+      },
+      {
+        "id": "F005",
+        "category": "code_quality",
+        "severity": "low",
+        "title": "Large file: ProjectPanel.tsx",
+        "description": "File has 568 lines",
+        "location": "ProjectPanel.tsx",
+        "evidence": "",
+        "impact": "",
+        "recommendation": "Consider splitting into smaller modules",
+        "effort_hours": 3,
+        "ai_can_fix": true,
+        "ai_approach": "AI can identify logical split points"
+      },
+      {
+        "id": "F006",
+        "category": "code_quality",
+        "severity": "low",
+        "title": "Large file: Team.tsx",
+        "description": "File has 549 lines",
+        "location": "Team.tsx",
+        "evidence": "",
+        "impact": "",
+        "recommendation": "Consider splitting into smaller modules",
+        "effort_hours": 3,
+        "ai_can_fix": true,
+        "ai_approach": "AI can identify logical split points"
+      }
+    ],
+    "strengths": [
+      "TypeScript for type safety"
+    ],
+    "weaknesses": [
+      "No linting",
+      "502 files over 500 lines"
+    ]
+  },
+  "tech_debt": {
+    "category": "tech_debt",
+    "score": 55,
+    "status": "warning",
+    "summary": "Tech debt analysis complete",
+    "findings": [
+      {
+        "id": "F007",
+        "category": "tech_debt",
+        "severity": "low",
+        "title": "2208 unresolved TODOs",
+        "description": "Large number of TODO/FIXME markers",
+        "location": "",
+        "evidence": "",
+        "impact": "",
+        "recommendation": "Review and resolve or create tickets",
+        "effort_hours": 4,
+        "ai_can_fix": true,
+        "ai_approach": "AI can categorize TODOs and suggest implementations"
+      }
+    ],
+    "strengths": [],
+    "weaknesses": [
+      "2208 TODO/FIXME comments"
+    ]
+  },
+  "security": {
+    "category": "security",
+    "score": 60,
+    "status": "good",
+    "summary": "Security analysis complete",
+    "findings": [
+      {
+        "id": "F008",
+        "category": "security",
+        "severity": "critical",
+        "title": "Hardcoded secrets detected",
+        "description": "Found 28 files with potential credentials",
+        "location": "",
+        "evidence": "",
+        "impact": "Credentials could be exposed in git history",
+        "recommendation": "Move to environment variables, rotate exposed credentials",
+        "effort_hours": 2,
+        "ai_can_fix": true,
+        "ai_approach": "AI can identify and migrate secrets to env vars"
+      }
+    ],
+    "strengths": [
+      ".env excluded from git",
+      "Authentication library detected"
+    ],
+    "weaknesses": [
+      "28 potential hardcoded secrets"
+    ]
+  },
+  "ux_navigation": {
+    "category": "ux_navigation",
+    "score": 90,
+    "status": "excellent",
+    "summary": "Navigation UX analysis complete",
+    "findings": [],
+    "strengths": [
+      "Router implementation present",
+      "Navigation components present",
+      "Breadcrumb navigation",
+      "Error pages present",
+      "Back navigation implemented"
+    ],
+    "weaknesses": []
+  },
+  "ux_styling": {
+    "category": "ux_styling",
+    "score": 85,
+    "status": "excellent",
+    "summary": "Styling analysis complete",
+    "findings": [
+      {
+        "id": "F009",
+        "category": "ux_styling",
+        "severity": "medium",
+        "title": "Inconsistent styling",
+        "description": "Multiple systems: Tailwind, Bootstrap, CSS Modules",
+        "location": "",
+        "evidence": "",
+        "impact": "Inconsistent look, harder maintenance",
+        "recommendation": "Consolidate to single approach",
+        "effort_hours": 12,
+        "ai_can_fix": true,
+        "ai_approach": "AI can migrate styles to unified system"
+      }
+    ],
+    "strengths": [
+      "Design tokens/CSS variables",
+      "Dark mode support",
+      "Responsive breakpoints"
+    ],
+    "weaknesses": [
+      "Mixed: Tailwind, Bootstrap, CSS Modules"
+    ]
+  },
+  "ux_accessibility": {
+    "category": "ux_accessibility",
+    "score": 95,
+    "status": "excellent",
+    "summary": "Accessibility analysis complete",
+    "findings": [],
+    "strengths": [
+      "ARIA attributes used",
+      "Image alt text present",
+      "Semantic HTML used",
+      "Focus states implemented"
+    ],
+    "weaknesses": []
+  },
+  "performance": {
+    "category": "performance",
+    "score": 95,
+    "status": "excellent",
+    "summary": "Performance analysis complete",
+    "findings": [],
+    "strengths": [
+      "Code splitting/lazy loading",
+      "Memoization used",
+      "Image optimization"
+    ],
+    "weaknesses": []
+  },
+  "testing": {
+    "category": "testing",
+    "score": 30,
+    "status": "critical",
+    "summary": "Testing analysis complete",
+    "findings": [
+      {
+        "id": "F010",
+        "category": "testing",
+        "severity": "high",
+        "title": "No test coverage",
+        "description": "No test files found",
+        "location": "",
+        "evidence": "",
+        "impact": "High risk of regressions",
+        "recommendation": "Implement testing starting with critical paths",
+        "effort_hours": 20,
+        "ai_can_fix": true,
+        "ai_approach": "AI can generate initial test suite"
+      }
+    ],
+    "strengths": [],
+    "weaknesses": [
+      "No tests"
+    ]
+  },
+  "documentation": {
+    "category": "documentation",
+    "score": 90,
+    "status": "excellent",
+    "summary": "Documentation analysis complete",
+    "findings": [],
+    "strengths": [
+      "README present",
+      "API documentation",
+      "Code comments present"
+    ],
+    "weaknesses": []
+  },
+  "all_findings": [
+    {
+      "id": "F001",
+      "category": "architecture",
+      "severity": "medium",
+      "title": "No source directory structure",
+      "description": "Code not organized into src/, lib/, or app/",
+      "location": "",
+      "evidence": "",
+      "impact": "",
+      "recommendation": "Create src/ directory for application code",
+      "effort_hours": 2,
+      "ai_can_fix": false,
+      "ai_approach": ""
+    },
+    {
+      "id": "F002",
+      "category": "architecture",
+      "severity": "medium",
+      "title": "Missing .env.example",
+      "description": "No environment configuration template",
+      "location": "",
+      "evidence": "",
+      "impact": "",
+      "recommendation": "Create .env.example with required variables",
+      "effort_hours": 0.5,
+      "ai_can_fix": false,
+      "ai_approach": ""
+    },
+    {
+      "id": "F003",
+      "category": "code_quality",
+      "severity": "medium",
+      "title": "No linter configuration",
+      "description": "No ESLint, Pylint, or Ruff config found",
+      "location": "",
+      "evidence": "",
+      "impact": "",
+      "recommendation": "Add linting for consistent code style",
+      "effort_hours": 1,
+      "ai_can_fix": true,
+      "ai_approach": "AI can generate optimal lint rules from code patterns"
+    },
+    {
+      "id": "F004",
+      "category": "code_quality",
+      "severity": "low",
+      "title": "Large file: Login.tsx",
+      "description": "File has 519 lines",
+      "location": "Login.tsx",
+      "evidence": "",
+      "impact": "",
+      "recommendation": "Consider splitting into smaller modules",
+      "effort_hours": 3,
+      "ai_can_fix": true,
+      "ai_approach": "AI can identify logical split points"
+    },
+    {
+      "id": "F005",
+      "category": "code_quality",
+      "severity": "low",
+      "title": "Large file: ProjectPanel.tsx",
+      "description": "File has 568 lines",
+      "location": "ProjectPanel.tsx",
+      "evidence": "",
+      "impact": "",
+      "recommendation": "Consider splitting into smaller modules",
+      "effort_hours": 3,
+      "ai_can_fix": true,
+      "ai_approach": "AI can identify logical split points"
+    },
+    {
+      "id": "F006",
+      "category": "code_quality",
+      "severity": "low",
+      "title": "Large file: Team.tsx",
+      "description": "File has 549 lines",
+      "location": "Team.tsx",
+      "evidence": "",
+      "impact": "",
+      "recommendation": "Consider splitting into smaller modules",
+      "effort_hours": 3,
+      "ai_can_fix": true,
+      "ai_approach": "AI can identify logical split points"
+    },
+    {
+      "id": "F007",
+      "category": "tech_debt",
+      "severity": "low",
+      "title": "2208 unresolved TODOs",
+      "description": "Large number of TODO/FIXME markers",
+      "location": "",
+      "evidence": "",
+      "impact": "",
+      "recommendation": "Review and resolve or create tickets",
+      "effort_hours": 4,
+      "ai_can_fix": true,
+      "ai_approach": "AI can categorize TODOs and suggest implementations"
+    },
+    {
+      "id": "F008",
+      "category": "security",
+      "severity": "critical",
+      "title": "Hardcoded secrets detected",
+      "description": "Found 28 files with potential credentials",
+      "location": "",
+      "evidence": "",
+      "impact": "Credentials could be exposed in git history",
+      "recommendation": "Move to environment variables, rotate exposed credentials",
+      "effort_hours": 2,
+      "ai_can_fix": true,
+      "ai_approach": "AI can identify and migrate secrets to env vars"
+    },
+    {
+      "id": "F009",
+      "category": "ux_styling",
+      "severity": "medium",
+      "title": "Inconsistent styling",
+      "description": "Multiple systems: Tailwind, Bootstrap, CSS Modules",
+      "location": "",
+      "evidence": "",
+      "impact": "Inconsistent look, harder maintenance",
+      "recommendation": "Consolidate to single approach",
+      "effort_hours": 12,
+      "ai_can_fix": true,
+      "ai_approach": "AI can migrate styles to unified system"
+    },
+    {
+      "id": "F010",
+      "category": "testing",
+      "severity": "high",
+      "title": "No test coverage",
+      "description": "No test files found",
+      "location": "",
+      "evidence": "",
+      "impact": "High risk of regressions",
+      "recommendation": "Implement testing starting with critical paths",
+      "effort_hours": 20,
+      "ai_can_fix": true,
+      "ai_approach": "AI can generate initial test suite"
+    }
+  ],
+  "critical_count": 1,
+  "high_count": 1,
+  "ai_fixable_count": 8,
+  "files_analyzed": 0,
+  "lines_analyzed": 0
+}

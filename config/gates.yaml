@@ -1,0 +1,198 @@
+# Voting Gates Configuration
+# Defines quality gates with voter assignments and thresholds
+
+gates:
+  # ============================================
+  # MAJOR GATES (5 Voters, 3+ to pass)
+  # ============================================
+  
+  - id: requirements_approval
+    name: "Requirements Approval"
+    type: major
+    trigger: "BA completes user stories"
+    threshold: 3
+    max_retries: 3
+    voters:
+      - voter_completeness
+      - voter_clarity
+      - voter_testability
+      - voter_feasibility
+      - voter_user_value
+    on_pass: "proceed_to_architecture"
+    on_fail: "return_to_business_analyst"
+    feedback_required: true
+
+  - id: architecture_approval
+    name: "Architecture Approval"
+    type: major
+    trigger: "Architect completes design"
+    threshold: 3
+    max_retries: 3
+    voters:
+      - voter_scalability
+      - voter_security
+      - voter_maintainability
+      - voter_performance
+      - voter_integration
+    on_pass: "proceed_to_development"
+    on_fail: "return_to_solutions_architect"
+    feedback_required: true
+
+  - id: release_readiness
+    name: "Release Readiness"
+    type: major
+    trigger: "All code complete, tests passing"
+    threshold: 3
+    max_retries: 3
+    voters:
+      - voter_code_quality
+      - voter_test_coverage
+      - voter_security
+      - voter_documentation
+      - voter_operations
+    on_pass: "proceed_to_deployment"
+    on_fail: "return_to_relevant_agent"
+    feedback_required: true
+
+  - id: assessment_approval
+    name: "Codebase Assessment Approval"
+    type: major
+    trigger: "Assessment agent completes codebase analysis"
+    threshold: 3
+    max_retries: 3
+    voters:
+      - voter_completeness
+      - voter_clarity
+      - voter_feasibility
+      - voter_security
+      - voter_code_quality
+    on_pass: "proceed_to_planning"
+    on_fail: "return_to_assessment"
+    feedback_required: true
+
+  - id: planning_approval
+    name: "Improvement Planning Approval"
+    type: major
+    trigger: "Planning agent completes improvement plan"
+    threshold: 3
+    max_retries: 3
+    voters:
+      - voter_feasibility
+      - voter_user_value
+      - voter_maintainability
+      - voter_scalability
+      - voter_integration
+    on_pass: "proceed_to_execution"
+    on_fail: "return_to_planning"
+    feedback_required: true
+
+  # ============================================
+  # MINOR GATES (3 Voters, 2+ to pass)
+  # ============================================
+
+  - id: code_review
+    name: "Code Review"
+    type: minor
+    trigger: "Developer completes feature code"
+    threshold: 2
+    max_retries: 3
+    voters:
+      - voter_standards
+      - voter_logic
+      - voter_security
+    on_pass: "proceed_to_code_simplifier"
+    on_fail: "return_to_developer"
+    feedback_required: true
+
+  - id: test_coverage
+    name: "Test Coverage"
+    type: minor
+    trigger: "Test Writer completes scripts"
+    threshold: 2
+    max_retries: 3
+    voters:
+      - voter_completeness
+      - voter_testability
+      - voter_maintainability
+    on_pass: "run_tests"
+    on_fail: "return_to_test_writer"
+    feedback_required: true
+
+  # ============================================
+  # SINGLE APPROVAL GATES
+  # ============================================
+
+  - id: ui_design_approval
+    name: "UI/UX Design Approval"
+    type: single
+    trigger: "UI/UX Designer completes design"
+    approver: product_owner
+    criteria: "Design meets requirements and user needs"
+    on_pass: "proceed_to_development"
+    on_fail: "return_to_ui_ux_designer"
+
+  - id: schema_approval
+    name: "Database Schema Approval"
+    type: single
+    trigger: "Data Architect completes schema"
+    approver: solutions_architect
+    criteria: "Schema aligns with architecture"
+    on_pass: "proceed_to_development"
+    on_fail: "return_to_data_architect"
+
+  - id: api_contract_approval
+    name: "API Contract Approval"
+    type: single
+    trigger: "API Designer completes specs"
+    approver: solutions_architect
+    criteria: "API follows standards and architecture"
+    on_pass: "proceed_to_development"
+    on_fail: "return_to_api_designer"
+
+  - id: documentation_approval
+    name: "Documentation Approval"
+    type: single
+    trigger: "Technical Writer completes docs"
+    approver: code_reviewer
+    criteria: "Documentation is complete and accurate"
+    on_pass: "mark_complete"
+    on_fail: "return_to_technical_writer"
+
+  - id: deployment_config_approval
+    name: "Deployment Config Approval"
+    type: single
+    trigger: "DevOps completes deployment config"
+    approver: security_specialist
+    criteria: "No exposed secrets, secure configuration"
+    on_pass: "ready_for_deploy"
+    on_fail: "return_to_devops"
+
+# ============================================
+# FAILURE HANDLING
+# ============================================
+failure_handling:
+  max_global_retries: 3
+  
+  escalation:
+    trigger: "3 consecutive gate failures"
+    action: "flag_for_human_review"
+    include:
+      - all_voter_feedback
+      - artifact_history
+      - decision_log
+  
+  circuit_breaker:
+    trigger: "same_feature_fails_3_gates"
+    action: "immediate_escalation"
+    reason: "Likely requirements/architecture mismatch"
+
+# ============================================
+# VOTE RESPONSE FORMAT
+# ============================================
+vote_format:
+  required_fields:
+    - vote: "approve | reject"
+    - confidence: "high | medium | low"
+    - reasoning: "Brief explanation"
+    - concerns: "List of specific concerns (if reject)"
+    - suggestions: "Improvement suggestions (if reject)"

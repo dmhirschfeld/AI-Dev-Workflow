@@ -1,0 +1,416 @@
+[
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\App.tsx",
+    "relative_path": "App.tsx",
+    "extension": ".tsx",
+    "size": 15350,
+    "lines": 473,
+    "language": "TypeScript React",
+    "hash": "703bd6c83343"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\constants.ts",
+    "relative_path": "constants.ts",
+    "extension": ".ts",
+    "size": 6014,
+    "lines": 212,
+    "language": "TypeScript",
+    "hash": "75cf5c7f558e"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\index.html",
+    "relative_path": "index.html",
+    "extension": ".html",
+    "size": 2268,
+    "lines": 63,
+    "language": "HTML",
+    "hash": "3e0e33a568cf"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\index.tsx",
+    "relative_path": "index.tsx",
+    "extension": ".tsx",
+    "size": 569,
+    "lines": 21,
+    "language": "TypeScript React",
+    "hash": "089aaeb54fce"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\playwright.config.ts",
+    "relative_path": "playwright.config.ts",
+    "extension": ".ts",
+    "size": 4811,
+    "lines": 165,
+    "language": "TypeScript",
+    "hash": "91b50d667139"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\types.ts",
+    "relative_path": "types.ts",
+    "extension": ".ts",
+    "size": 2330,
+    "lines": 104,
+    "language": "TypeScript",
+    "hash": "3b38929b1ef2"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\vite-env.d.ts",
+    "relative_path": "vite-env.d.ts",
+    "extension": ".ts",
+    "size": 164,
+    "lines": 9,
+    "language": "TypeScript",
+    "hash": "851df6b57488"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\vite.config.ts",
+    "relative_path": "vite.config.ts",
+    "extension": ".ts",
+    "size": 478,
+    "lines": 23,
+    "language": "TypeScript",
+    "hash": "f9829e812612"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\Clients.tsx",
+    "relative_path": "components\\Clients.tsx",
+    "extension": ".tsx",
+    "size": 26372,
+    "lines": 471,
+    "language": "TypeScript React",
+    "hash": "f0ec899ae9a9"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\ConfirmModal.tsx",
+    "relative_path": "components\\ConfirmModal.tsx",
+    "extension": ".tsx",
+    "size": 2379,
+    "lines": 83,
+    "language": "TypeScript React",
+    "hash": "c387c04a4251"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\Dashboard.tsx",
+    "relative_path": "components\\Dashboard.tsx",
+    "extension": ".tsx",
+    "size": 10029,
+    "lines": 214,
+    "language": "TypeScript React",
+    "hash": "d00a876a7bf4"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\Layout.tsx",
+    "relative_path": "components\\Layout.tsx",
+    "extension": ".tsx",
+    "size": 6842,
+    "lines": 160,
+    "language": "TypeScript React",
+    "hash": "1401bc651d0c"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\LoadingScreen.tsx",
+    "relative_path": "components\\LoadingScreen.tsx",
+    "extension": ".tsx",
+    "size": 653,
+    "lines": 14,
+    "language": "TypeScript React",
+    "hash": "728690e3bb5c"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\Login.tsx",
+    "relative_path": "components\\Login.tsx",
+    "extension": ".tsx",
+    "size": 27275,
+    "lines": 519,
+    "language": "TypeScript React",
+    "hash": "19a02dcc8f27"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\ProjectPanel.tsx",
+    "relative_path": "components\\ProjectPanel.tsx",
+    "extension": ".tsx",
+    "size": 25969,
+    "lines": 568,
+    "language": "TypeScript React",
+    "hash": "8121c281ee18"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\Projects.tsx",
+    "relative_path": "components\\Projects.tsx",
+    "extension": ".tsx",
+    "size": 17192,
+    "lines": 302,
+    "language": "TypeScript React",
+    "hash": "1ebceeae8b6c"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\Settings.tsx",
+    "relative_path": "components\\Settings.tsx",
+    "extension": ".tsx",
+    "size": 11477,
+    "lines": 203,
+    "language": "TypeScript React",
+    "hash": "13604ad3dcce"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\Team.tsx",
+    "relative_path": "components\\Team.tsx",
+    "extension": ".tsx",
+    "size": 28921,
+    "lines": 549,
+    "language": "TypeScript React",
+    "hash": "349aa2e65db6"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\TimeEntryPanel.tsx",
+    "relative_path": "components\\TimeEntryPanel.tsx",
+    "extension": ".tsx",
+    "size": 27784,
+    "lines": 644,
+    "language": "TypeScript React",
+    "hash": "e13789c1cf2a"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\components\\TimeSheet.tsx",
+    "relative_path": "components\\TimeSheet.tsx",
+    "extension": ".tsx",
+    "size": 24277,
+    "lines": 437,
+    "language": "TypeScript React",
+    "hash": "6a7c2138fc74"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\contexts\\AuthContext.tsx",
+    "relative_path": "contexts\\AuthContext.tsx",
+    "extension": ".tsx",
+    "size": 2238,
+    "lines": 78,
+    "language": "TypeScript React",
+    "hash": "610c50419f25"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\contexts\\ToastContext.tsx",
+    "relative_path": "contexts\\ToastContext.tsx",
+    "extension": ".tsx",
+    "size": 2806,
+    "lines": 73,
+    "language": "TypeScript React",
+    "hash": "900844d5681b"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\playwright-report\\index.html",
+    "relative_path": "playwright-report\\index.html",
+    "extension": ".html",
+    "size": 524399,
+    "lines": 85,
+    "language": "HTML",
+    "hash": "b69efb45329a"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\services\\db.ts",
+    "relative_path": "services\\db.ts",
+    "extension": ".ts",
+    "size": 6201,
+    "lines": 187,
+    "language": "TypeScript",
+    "hash": "d7a647c3bce8"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\admin.spec.ts",
+    "relative_path": "tests\\admin.spec.ts",
+    "extension": ".ts",
+    "size": 19763,
+    "lines": 524,
+    "language": "TypeScript",
+    "hash": "4df0c3b308c3"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\audit.spec.ts",
+    "relative_path": "tests\\audit.spec.ts",
+    "extension": ".ts",
+    "size": 12295,
+    "lines": 322,
+    "language": "TypeScript",
+    "hash": "7c9c6acba4a9"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\auth.admin.setup.ts",
+    "relative_path": "tests\\auth.admin.setup.ts",
+    "extension": ".ts",
+    "size": 2341,
+    "lines": 60,
+    "language": "TypeScript",
+    "hash": "6e01c9490c4c"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\auth.manager.setup.ts",
+    "relative_path": "tests\\auth.manager.setup.ts",
+    "extension": ".ts",
+    "size": 2262,
+    "lines": 58,
+    "language": "TypeScript",
+    "hash": "f0f83547c2c0"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\auth.member.setup.ts",
+    "relative_path": "tests\\auth.member.setup.ts",
+    "extension": ".ts",
+    "size": 2591,
+    "lines": 63,
+    "language": "TypeScript",
+    "hash": "84bc7034bbe1"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\auth.setup.ts",
+    "relative_path": "tests\\auth.setup.ts",
+    "extension": ".ts",
+    "size": 1609,
+    "lines": 40,
+    "language": "TypeScript",
+    "hash": "d2a403efcee1"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\auth.spec.ts",
+    "relative_path": "tests\\auth.spec.ts",
+    "extension": ".ts",
+    "size": 4329,
+    "lines": 115,
+    "language": "TypeScript",
+    "hash": "699b3ad84d09"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\fixtures.ts",
+    "relative_path": "tests\\fixtures.ts",
+    "extension": ".ts",
+    "size": 6777,
+    "lines": 188,
+    "language": "TypeScript",
+    "hash": "624076d5ff17"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\manager.spec.ts",
+    "relative_path": "tests\\manager.spec.ts",
+    "extension": ".ts",
+    "size": 8547,
+    "lines": 236,
+    "language": "TypeScript",
+    "hash": "ceb714db760d"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\member.spec.ts",
+    "relative_path": "tests\\member.spec.ts",
+    "extension": ".ts",
+    "size": 14756,
+    "lines": 369,
+    "language": "TypeScript",
+    "hash": "d49c4690ea33"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\regression.spec.ts",
+    "relative_path": "tests\\regression.spec.ts",
+    "extension": ".ts",
+    "size": 18660,
+    "lines": 487,
+    "language": "TypeScript",
+    "hash": "dc9351c375fb"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\time-entry.spec.ts",
+    "relative_path": "tests\\time-entry.spec.ts",
+    "extension": ".ts",
+    "size": 11479,
+    "lines": 264,
+    "language": "TypeScript",
+    "hash": "6547386e5394"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\tests\\validation.spec.ts",
+    "relative_path": "tests\\validation.spec.ts",
+    "extension": ".ts",
+    "size": 13892,
+    "lines": 351,
+    "language": "TypeScript",
+    "hash": "171bf965de4c"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\server\\src\\audit.ts",
+    "relative_path": "server\\src\\audit.ts",
+    "extension": ".ts",
+    "size": 4644,
+    "lines": 137,
+    "language": "TypeScript",
+    "hash": "d7deffcfb1df"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\server\\src\\cloud-test-setup.sql",
+    "relative_path": "server\\src\\cloud-test-setup.sql",
+    "extension": ".sql",
+    "size": 5015,
+    "lines": 131,
+    "language": "SQL",
+    "hash": "e8166160c524"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\server\\src\\db.ts",
+    "relative_path": "server\\src\\db.ts",
+    "extension": ".ts",
+    "size": 10083,
+    "lines": 212,
+    "language": "TypeScript",
+    "hash": "83725e506b48"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\server\\src\\email.ts",
+    "relative_path": "server\\src\\email.ts",
+    "extension": ".ts",
+    "size": 6463,
+    "lines": 134,
+    "language": "TypeScript",
+    "hash": "ae5dfc0f06c7"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\server\\src\\index.ts",
+    "relative_path": "server\\src\\index.ts",
+    "extension": ".ts",
+    "size": 62964,
+    "lines": 1585,
+    "language": "TypeScript",
+    "hash": "b96c2af4ce79"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\server\\src\\local-dev.ts",
+    "relative_path": "server\\src\\local-dev.ts",
+    "extension": ".ts",
+    "size": 3526,
+    "lines": 106,
+    "language": "TypeScript",
+    "hash": "dec17bdc01b9"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\server\\src\\schema.ts",
+    "relative_path": "server\\src\\schema.ts",
+    "extension": ".ts",
+    "size": 7799,
+    "lines": 194,
+    "language": "TypeScript",
+    "hash": "05569ec41abd"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\server\\src\\swagger-paths.ts",
+    "relative_path": "server\\src\\swagger-paths.ts",
+    "extension": ".ts",
+    "size": 22333,
+    "lines": 554,
+    "language": "TypeScript",
+    "hash": "ce4dc1b52e9e"
+  },
+  {
+    "path": "C:\\Users\\david\\TimeTracking\\server\\src\\swagger.ts",
+    "relative_path": "server\\src\\swagger.ts",
+    "extension": ".ts",
+    "size": 7702,
+    "lines": 163,
+    "language": "TypeScript",
+    "hash": "6f6d043eda58"
+  }
+]
