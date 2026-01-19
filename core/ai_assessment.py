@@ -392,9 +392,6 @@ Analyze this codebase and provide a comprehensive assessment of {self.step_name.
 ## Code Samples (analyze these for your assessment)
 {code_samples}
 
-## Lessons Learned (from previous assessments - IMPORTANT)
-{lessons_text}
-
 ## Rules Already Applied (don't duplicate these findings)
 {rule_findings_text}
 
@@ -445,6 +442,8 @@ CONSISTENCY REQUIREMENTS:
 - Given the same codebase, your findings should be consistent across runs
 - Focus on objective, measurable issues rather than subjective opinions
 - Prioritize findings by actual impact, not by order discovered
+
+{self._format_critical_checklist(lessons_text)}
 """
 
     def _build_format_instructions(self, learned_rules: list[dict]) -> str:
@@ -495,17 +494,53 @@ CONSISTENCY REQUIREMENTS:
         return "\n".join(instructions)
 
     def _format_lessons(self, lessons: list[Lesson]) -> str:
-        """Format lessons for prompt inclusion."""
+        """Format lessons as MANDATORY requirements."""
         if not lessons:
             return ""
 
-        lines = ["Previous assessments have identified these patterns to check:"]
-        for lesson in lessons[:10]:  # Limit to top 10
-            lines.append(f"- {lesson.pattern}")
+        # Sort by confidence and occurrences to prioritize most important
+        sorted_lessons = sorted(lessons, key=lambda l: (l.confidence, l.occurrences), reverse=True)
+
+        lines = []
+        for i, lesson in enumerate(sorted_lessons[:10], 1):  # Limit to top 10
+            confidence_marker = "🔴" if lesson.confidence >= 80 else "🟡" if lesson.confidence >= 60 else "⚪"
+            lines.append(f"{i}. {confidence_marker} {lesson.pattern}")
             if lesson.correction:
-                lines.append(f"  Action: {lesson.correction}")
+                lines.append(f"   → REQUIRED ACTION: {lesson.correction}")
+            lines.append(f"   (Failed {lesson.occurrences}x in past assessments - confidence: {lesson.confidence}%)")
+            lines.append("")
 
         return "\n".join(lines)
+
+    def _format_critical_checklist(self, lessons_text: str) -> str:
+        """Format lessons as a CRITICAL CHECKLIST at the end of the prompt."""
+        if not lessons_text or lessons_text == "No previous lessons.":
+            return ""
+
+        return f"""
+## ⛔ CRITICAL CHECKLIST - YOU MUST ADDRESS THESE ⛔
+
+The following issues have caused assessment FAILURES in the past. Your assessment
+WILL BE REJECTED if you do not explicitly address each item below.
+
+For EACH item in this checklist, your response MUST include:
+1. A specific finding OR explicit statement that you checked and it's not applicable
+2. Evidence from the actual code (file paths, line numbers, code snippets)
+3. If the issue exists: a finding with severity, impact, and recommendation
+4. If the issue does NOT exist: mention it in strengths with evidence why
+
+FAILURE TO ADDRESS THESE ITEMS = AUTOMATIC REJECTION BY VOTERS
+
+{lessons_text}
+
+⚠️ REMINDER: Voters will specifically check that EACH item above is addressed.
+Assessments that ignore this checklist have been rejected {self._get_rejection_count()} times.
+"""
+
+    def _get_rejection_count(self) -> int:
+        """Get total rejection count from lessons."""
+        lessons = self.lessons_db.get_lessons(self.step_name)
+        return sum(l.occurrences for l in lessons) if lessons else 0
 
     def _format_examples(self, examples: list[Example]) -> str:
         """Format examples for prompt inclusion."""
