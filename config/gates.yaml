@@ -138,6 +138,23 @@ gates:
     on_pass: "continue_to_next_step"
     on_fail: "retry_step"
     feedback_required: true
+    review_guidance: |
+      IMPORTANT: You are evaluating WHETHER THE ASSESSMENT/ANALYSIS WAS DONE PROPERLY,
+      NOT whether the codebase being assessed is good or bad.
+
+      Ask yourself:
+      - Did the assessor examine the actual code and provide specific findings?
+      - Are findings backed by evidence (file paths, line numbers, code snippets)?
+      - Is the scoring reasonable and explained?
+      - Are recommendations actionable?
+
+      DO NOT reject because:
+      - The codebase has problems (that's what the assessment found)
+      - Not every possible edge case is covered (focus on major issues)
+      - The score is low (that may accurately reflect the codebase)
+
+      APPROVE if the assessment work is thorough, specific, and evidence-based.
+      REJECT only if the assessment is clearly incomplete, vague, or lacks evidence.
 
   - id: code_review
     name: "Code Review"
