@@ -80,16 +80,23 @@ class ConsoleMonitor:
         if event_type == "agent_call":
             tokens = event.get("input_tokens", 0) + event.get("output_tokens", 0)
             output = event.get("output_summary", "")
-            print(f"{timestamp} {status_icon} {agent:25} {duration:5}ms ${cost:.4f} ({tokens} tok)")
+
+            # Extract step name for step_ agents (e.g., "step_architecture" -> "ARCHITECTURE")
+            if agent.startswith("step_"):
+                step_name = agent.replace("step_", "").upper()
+                print(f"{timestamp} {status_icon} [{step_name:15}] {duration:5}ms ${cost:.4f} ({tokens} tok)")
+            else:
+                print(f"{timestamp} {status_icon} {agent:25} {duration:5}ms ${cost:.4f} ({tokens} tok)")
 
             # Show detailed output for step analysis
             if output and agent.startswith("step_"):
+                step_name = agent.replace("step_", "").upper()
                 lines = output.split("\n")
                 for line in lines[:15]:
                     if line.strip():
-                        print(f"{'':20} {line}")
+                        print(f"{'':20} [{step_name:15}] {line}")
                 if len(lines) > 15:
-                    print(f"{'':20} ... ({len(lines) - 15} more lines)")
+                    print(f"{'':20} [{step_name:15}] ... ({len(lines) - 15} more lines)")
             elif output:
                 print(f"{'':20} -> {output[:100]}...")
 
@@ -99,15 +106,18 @@ class ConsoleMonitor:
             votes_against = meta.get("votes_against", 0)
             passed = "PASS" if meta.get("passed") else "FAIL"
             feedback = event.get("output_summary", "")
-            print(f"{timestamp} {status_icon} GATE: {agent:20} {passed} ({votes_for} for / {votes_against} against)")
+            # Extract step name from agent (e.g., "Architecture Assessment" -> "ARCHITECTURE")
+            step_name = agent.replace(" Assessment", "").upper()
+            status_str = "✅" if meta.get("passed") else "❌"
+            print(f"{timestamp} {status_str} [{step_name:15}] VOTE: {passed} ({votes_for} for / {votes_against} against)")
             if feedback and len(feedback) > 10:
                 max_lines = 30 if not meta.get("passed") else 5
                 lines = feedback.split("\n")
                 for line in lines[:max_lines]:
                     if line.strip():
-                        print(f"{'':20} {line}")
+                        print(f"{'':20} [{step_name:15}] {line}")
                 if len(lines) > max_lines:
-                    print(f"{'':20} ... ({len(lines) - max_lines} more lines)")
+                    print(f"{'':20} [{step_name:15}] ... ({len(lines) - max_lines} more lines)")
 
         elif event_type == "phase_change":
             meta = event.get("metadata", {})
@@ -121,12 +131,27 @@ class ConsoleMonitor:
         elif event_type == "decision":
             decision = event.get("input_summary", "")
             rationale = event.get("output_summary", "")
-            print(f"{timestamp} [DEC] {agent}: {decision}")
+            # Extract step name from decision text if it's a lesson learned
+            step_name = ""
+            if "from " in decision and " rejection" in decision:
+                # Extract step name from "Lesson learned from X rejection"
+                import re
+                match = re.search(r'from (\w+(?:\s+\w+)?)\s+rejection', decision, re.IGNORECASE)
+                if match:
+                    step_name = match.group(1).upper()
+
+            if step_name:
+                print(f"{timestamp} [DEC] [{step_name:15}] {agent}: {decision}")
+            else:
+                print(f"{timestamp} [DEC] {agent}: {decision}")
             if rationale:
                 lines = rationale.split("\n")
                 for line in lines[:5]:
                     if line.strip():
-                        print(f"{'':20} {line}")
+                        if step_name:
+                            print(f"{'':20} [{step_name:15}] {line}")
+                        else:
+                            print(f"{'':20} {line}")
 
         else:
             print(f"{timestamp} [{event_type}] {agent}")
