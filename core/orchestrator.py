@@ -1160,11 +1160,12 @@ Please revise your work addressing the feedback above.
         from datetime import datetime
 
         # Create a placeholder for missing steps (used in Quick Test mode)
-        def make_placeholder(name: str) -> CategoryScore:
+        def make_placeholder(category_name: str) -> CategoryScore:
             return CategoryScore(
-                name=name,
+                category=category_name,
                 score=0,
                 status="skipped",
+                summary="Step was skipped (Quick Test mode)",
                 findings=[],
                 strengths=[],
                 weaknesses=["Step was skipped (Quick Test mode)"]
