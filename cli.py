@@ -21,6 +21,13 @@ from datetime import datetime
 from typing import Optional
 import yaml
 
+# Import for single-key input (no Enter required)
+if sys.platform == 'win32':
+    import msvcrt
+else:
+    import tty
+    import termios
+
 # Fix Windows console encoding for Unicode characters
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -197,6 +204,70 @@ class InteractiveCLI:
                 break
         return "\n".join(lines)
 
+    def get_menu_choice(self, prompt: str, valid_choices: list[str], default: str = "1") -> str:
+        """Get single-key menu choice without requiring Enter.
+
+        Args:
+            prompt: The prompt to display (e.g., "Select (1-4): ")
+            valid_choices: List of valid single-character choices (e.g., ["1", "2", "3", "4"])
+            default: Default choice if Enter is pressed
+
+        Returns:
+            The selected choice character
+        """
+        print(prompt, end="", flush=True)
+
+        try:
+            while True:
+                if sys.platform == 'win32':
+                    # Windows: use msvcrt
+                    char = msvcrt.getch()
+                    # Handle special keys (arrows, etc.) - they return b'\xe0' or b'\x00' first
+                    if char in (b'\xe0', b'\x00'):
+                        msvcrt.getch()  # Consume the second byte
+                        continue
+                    char = char.decode('utf-8', errors='ignore')
+                else:
+                    # Unix: use termios for raw input
+                    fd = sys.stdin.fileno()
+                    old_settings = termios.tcgetattr(fd)
+                    try:
+                        tty.setraw(fd)
+                        char = sys.stdin.read(1)
+                    finally:
+                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+                # Handle Enter key - use default
+                if char in ('\r', '\n'):
+                    print(default)  # Echo the default choice
+                    return default
+
+                # Handle Ctrl+C
+                if char == '\x03':
+                    print("\n")
+                    return "q"
+
+                # Handle 'q' for quit
+                if char.lower() == 'q':
+                    print(char)
+                    return "q"
+
+                # Handle 'b' for back
+                if char.lower() == 'b':
+                    print(char)
+                    return "b"
+
+                # Check if it's a valid choice
+                if char in valid_choices:
+                    print(char)  # Echo the choice
+                    return char
+
+                # Invalid choice - don't echo, keep waiting
+
+        except (KeyboardInterrupt, EOFError):
+            print("\n")
+            return "q"
+
     # ════════════════════════════════════════════════════════════
     # AUTONOMY SELECTION (First Menu)
     # ════════════════════════════════════════════════════════════
@@ -221,27 +292,21 @@ class InteractiveCLI:
         print("      Best for: Well-defined tasks, experienced users\n")
         
         print("  [q] Quit\n")
-        
-        while True:
-            choice = self.get_input("Select autonomy level (1-3): ").lower()
-            
-            if choice == "1":
-                self.autonomy_level = "pair"
-                print("\n✓ Pair Programming mode - maximum checkpoints\n")
-                break
-            elif choice == "2":
-                self.autonomy_level = "balanced"
-                print("\n✓ Balanced mode - key checkpoints only\n")
-                break
-            elif choice == "3":
-                self.autonomy_level = "autonomous"
-                print("\n✓ Fully Autonomous mode - minimal interruption\n")
-                break
-            elif choice in ["q", "quit", "exit"]:
-                print("Goodbye!")
-                sys.exit(0)
-            else:
-                print("Please enter 1, 2, or 3")
+
+        choice = self.get_menu_choice("Select autonomy level (1-3) [2]: ", ["1", "2", "3"], default="2")
+
+        if choice == "q":
+            print("Goodbye!")
+            sys.exit(0)
+        elif choice == "1":
+            self.autonomy_level = "pair"
+            print("\n✓ Pair Programming mode - maximum checkpoints\n")
+        elif choice == "3":
+            self.autonomy_level = "autonomous"
+            print("\n✓ Fully Autonomous mode - minimal interruption\n")
+        else:
+            self.autonomy_level = "balanced"
+            print("\n✓ Balanced mode - key checkpoints only\n")
 
         self.main_menu()
     
@@ -286,7 +351,7 @@ class InteractiveCLI:
                 ("q", "Quit"),
             ])
 
-            choice = self.get_input().lower()
+            choice = self.get_menu_choice("Choice: ", ["1", "2", "3", "4", "5", "6", "7", "c", "C"], default="3")
 
             if choice == "1":
                 self.new_project_flow()
@@ -841,9 +906,9 @@ class InteractiveCLI:
             print("  [3] Skip to Project Menu")
             print("      Open project without analysis")
             print()
-            
-            choice = self.get_input("Choice [1]: ") or "1"
-            
+
+            choice = self.get_menu_choice("Choice [1]: ", ["1", "2", "3"], default="1")
+
             if choice == "1":
                 self._run_comprehensive_workflow(result.project_name, source_path)
             elif choice == "2":
@@ -882,30 +947,29 @@ class InteractiveCLI:
         print("      Useful for testing the full self-improvement pipeline faster.")
         print()
 
-        while True:
-            choice = input("Select mode (1-4) [1]: ").strip() or "1"
+        mode_map = {
+            "1": ("standard", None),
+            "2": ("self_improvement", None),
+            "3": ("rules_only", None),
+            "4": ("self_improvement", ["architecture", "tech_debt"])
+        }
 
-            mode_map = {
-                "1": ("standard", None),
-                "2": ("self_improvement", None),
-                "3": ("rules_only", None),
-                "4": ("self_improvement", ["architecture", "tech_debt"])
-            }
+        choice = self.get_menu_choice("Select mode (1-4) [1]: ", ["1", "2", "3", "4"], default="1")
 
-            if choice in mode_map:
-                mode, test_steps = mode_map[choice]
-                mode_names = {
-                    "standard": "Standard",
-                    "self_improvement": "Self-Improvement (Training)",
-                    "rules_only": "Rules Only"
-                }
-                if test_steps:
-                    print(f"\n✓ Quick Test mode selected (steps: {', '.join(test_steps)})\n")
-                else:
-                    print(f"\n✓ {mode_names[mode]} mode selected\n")
-                return mode, test_steps
+        if choice in ("q", "b"):
+            return "standard", None  # Default if user quits/backs
 
-            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+        mode, test_steps = mode_map.get(choice, ("standard", None))
+        mode_names = {
+            "standard": "Standard",
+            "self_improvement": "Self-Improvement (Training)",
+            "rules_only": "Rules Only"
+        }
+        if test_steps:
+            print(f"\n✓ Quick Test mode selected (steps: {', '.join(test_steps)})\n")
+        else:
+            print(f"\n✓ {mode_names[mode]} mode selected\n")
+        return mode, test_steps
 
     def _setup_verbose_callbacks(self, orchestrator):
         """Set up verbose logging callbacks on the orchestrator"""
