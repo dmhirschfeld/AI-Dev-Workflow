@@ -1,119 +1,39 @@
 """
-Live Monitor Module for AI-Dev-Workflow
+Monitor Module - Real-time monitoring for AI-Dev-Workflow
 
-Provides real-time monitoring of workflow progress via:
-- ConsoleMonitor: Terminal-based live feed (tail -f style)
-- WebMonitor: Browser-based dashboard with Server-Sent Events
+Provides:
+- ConsoleMonitor: Terminal-based event viewer with --follow mode
+- WebMonitor: Browser-based dashboard with live updates
 """
 
 import json
 import time
-import threading
 import webbrowser
 from pathlib import Path
-from datetime import datetime
+from typing import Dict, List, Optional
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Optional, Dict, List, Any
-from dataclasses import dataclass
+from datetime import datetime
 
-try:
-    from rich.console import Console
-    from rich.table import Table
-    from rich.panel import Panel
-    from rich.live import Live
-    from rich.layout import Layout
-    from rich.text import Text
-    RICH_AVAILABLE = True
-except ImportError:
-    RICH_AVAILABLE = False
-
-from core.audit import read_session_events, get_latest_session
-
-
-@dataclass
-class MonitorStats:
-    """Running statistics for monitoring"""
-    session_id: str
-    project_id: str
-    started_at: str
-    current_phase: str = "unknown"
-    agent_calls: int = 0
-    gate_votes: int = 0
-    total_input_tokens: int = 0
-    total_output_tokens: int = 0
-    total_cost: float = 0.0
-    success_count: int = 0
-    failure_count: int = 0
-    events: List[Dict] = None
-
-    def __post_init__(self):
-        if self.events is None:
-            self.events = []
+from core.audit import get_latest_session, read_session_events
 
 
 class ConsoleMonitor:
-    """
-    Terminal-based monitor that tails the audit JSONL file.
-    Usage: python cli.py monitor [project] --follow
-    """
+    """Terminal-based monitor that displays events in real-time"""
 
     def __init__(self, project_dir: Path, session_id: Optional[str] = None):
         self.project_dir = Path(project_dir)
         self.audit_dir = self.project_dir / "audit"
         self.session_id = session_id or get_latest_session(self.project_dir)
         self.running = False
-        self.stats = None
-
-        if RICH_AVAILABLE:
-            self.console = Console()
-        else:
-            self.console = None
-
-    def _get_session_file(self) -> Optional[Path]:
-        """Get the session JSONL file path"""
-        if not self.session_id:
-            return None
-        return self.audit_dir / f"session_{self.session_id}.jsonl"
-
-    def _load_stats(self) -> MonitorStats:
-        """Load and compute stats from session file"""
-        events = read_session_events(self.project_dir, self.session_id) if self.session_id else []
-
-        stats = MonitorStats(
-            session_id=self.session_id or "none",
-            project_id=self.project_dir.name,
-            started_at=events[0]["timestamp"] if events else datetime.now().isoformat()
-        )
-
-        for event in events:
-            stats.events.append(event)
-            stats.total_input_tokens += event.get("input_tokens", 0)
-            stats.total_output_tokens += event.get("output_tokens", 0)
-            stats.total_cost += event.get("cost_usd", 0)
-
-            if event.get("status") == "success":
-                stats.success_count += 1
-            elif event.get("status") == "failure":
-                stats.failure_count += 1
-
-            if event.get("event_type") == "agent_call":
-                stats.agent_calls += 1
-            elif event.get("event_type") == "gate_vote":
-                stats.gate_votes += 1
-            elif event.get("event_type") == "phase_change":
-                stats.current_phase = event.get("phase", stats.current_phase)
-
-        return stats
 
     def follow(self):
-        """Follow the audit file and display live updates"""
-        session_file = self._get_session_file()
-
-        if not session_file:
-            print("No active session found. Start a workflow first.")
+        """Follow mode - continuously display new events"""
+        if not self.session_id:
+            print("No session found to monitor")
             return
 
-        print(f"Monitoring session: {self.session_id}")
+        session_file = self.audit_dir / f"session_{self.session_id}.jsonl"
+        print(f"Console: Monitoring session: {self.session_id}")
         print(f"Project: {self.project_dir.name}")
         print(f"Session file: {session_file}")
         print("-" * 60)
@@ -122,14 +42,6 @@ class ConsoleMonitor:
         self.running = True
         last_position = 0
 
-        # Load existing events
-        if session_file.exists():
-            with open(session_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    self._display_event(json.loads(line.strip()))
-                last_position = f.tell()
-
-        # Watch for new events
         try:
             while self.running:
                 if session_file.exists():
@@ -146,7 +58,7 @@ class ConsoleMonitor:
             self.running = False
 
     def _display_event(self, event: Dict):
-        """Display a single event in the console"""
+        """Display a single event in the console with detailed output"""
         timestamp = event.get("timestamp", "")[:19].replace("T", " ")
         event_type = event.get("event_type", "unknown")
         agent = event.get("agent", "-")
@@ -167,17 +79,35 @@ class ConsoleMonitor:
         # Format based on event type
         if event_type == "agent_call":
             tokens = event.get("input_tokens", 0) + event.get("output_tokens", 0)
-            output = event.get("output_summary", "")[:60]
+            output = event.get("output_summary", "")
             print(f"{timestamp} {status_icon} {agent:25} {duration:5}ms ${cost:.4f} ({tokens} tok)")
-            if output:
-                print(f"{'':20} -> {output}...")
+
+            # Show detailed output for step analysis
+            if output and agent.startswith("step_"):
+                lines = output.split("\n")
+                for line in lines[:15]:
+                    if line.strip():
+                        print(f"{'':20} {line}")
+                if len(lines) > 15:
+                    print(f"{'':20} ... ({len(lines) - 15} more lines)")
+            elif output:
+                print(f"{'':20} -> {output[:100]}...")
 
         elif event_type == "gate_vote":
             meta = event.get("metadata", {})
             votes_for = meta.get("votes_for", 0)
             votes_against = meta.get("votes_against", 0)
             passed = "PASS" if meta.get("passed") else "FAIL"
+            feedback = event.get("output_summary", "")
             print(f"{timestamp} {status_icon} GATE: {agent:20} {passed} ({votes_for} for / {votes_against} against)")
+            if feedback and len(feedback) > 10:
+                max_lines = 30 if not meta.get("passed") else 5
+                lines = feedback.split("\n")
+                for line in lines[:max_lines]:
+                    if line.strip():
+                        print(f"{'':20} {line}")
+                if len(lines) > max_lines:
+                    print(f"{'':20} ... ({len(lines) - max_lines} more lines)")
 
         elif event_type == "phase_change":
             meta = event.get("metadata", {})
@@ -189,40 +119,46 @@ class ConsoleMonitor:
             print(f"{timestamp} [!!!] ESCALATION: {event.get('input_summary', '')}")
 
         elif event_type == "decision":
-            print(f"{timestamp} [DEC] {agent}: {event.get('input_summary', '')[:50]}")
+            decision = event.get("input_summary", "")
+            rationale = event.get("output_summary", "")
+            print(f"{timestamp} [DEC] {agent}: {decision}")
+            if rationale:
+                lines = rationale.split("\n")
+                for line in lines[:5]:
+                    if line.strip():
+                        print(f"{'':20} {line}")
 
         else:
             print(f"{timestamp} [{event_type}] {agent}")
 
     def display_summary(self):
         """Display summary statistics"""
-        stats = self._load_stats()
+        if not self.session_id:
+            print("No session found")
+            return
 
-        print("\n" + "=" * 60)
-        print(f"SESSION SUMMARY: {stats.session_id}")
-        print("=" * 60)
-        print(f"Project:      {stats.project_id}")
-        print(f"Started:      {stats.started_at}")
-        print(f"Phase:        {stats.current_phase}")
-        print(f"Agent Calls:  {stats.agent_calls}")
-        print(f"Gate Votes:   {stats.gate_votes}")
-        print(f"Success:      {stats.success_count}")
-        print(f"Failures:     {stats.failure_count}")
-        print(f"Tokens:       {stats.total_input_tokens:,} in / {stats.total_output_tokens:,} out")
-        print(f"Total Cost:   ${stats.total_cost:.4f}")
-        print("=" * 60)
+        events = read_session_events(self.project_dir, self.session_id)
+
+        agent_calls = sum(1 for e in events if e.get("event_type") == "agent_call")
+        gate_votes = sum(1 for e in events if e.get("event_type") == "gate_vote")
+        total_tokens = sum(e.get("input_tokens", 0) + e.get("output_tokens", 0) for e in events)
+        total_cost = sum(e.get("cost_usd", 0) for e in events)
+
+        print(f"\nSession Summary: {self.session_id}")
+        print(f"  Events: {len(events)}")
+        print(f"  Agent Calls: {agent_calls}")
+        print(f"  Gate Votes: {gate_votes}")
+        print(f"  Total Tokens: {total_tokens}")
+        print(f"  Total Cost: ${total_cost:.4f}")
 
 
 class WebMonitor:
-    """
-    Web-based monitor with live dashboard.
-    Usage: python cli.py monitor [project] --web
-    """
+    """Web-based monitor with live dashboard"""
 
     def __init__(self, project_dir: Path, port: int = 8765, session_id: Optional[str] = None):
         self.project_dir = Path(project_dir)
         self.port = port
-        self.session_id = session_id  # If provided, watch this specific session
+        self.session_id = session_id
         self.server = None
         self.running = False
 
@@ -232,9 +168,9 @@ class WebMonitor:
         self.server = HTTPServer(("localhost", self.port), handler)
         self.running = True
 
-        print(f"Starting web monitor at http://localhost:{self.port}")
+        print(f"Web monitor: http://localhost:{self.port}")
         print(f"Project: {self.project_dir.name}")
-        print("Press Ctrl+C to stop.\n")
+        print(f"Session: {self.session_id}")
 
         if open_browser:
             webbrowser.open(f"http://localhost:{self.port}")
@@ -244,479 +180,812 @@ class WebMonitor:
         except KeyboardInterrupt:
             print("\nStopping web monitor...")
             self.running = False
+
+    def stop(self):
+        """Stop the web monitor server"""
+        if self.server:
             self.server.shutdown()
+            self.running = False
 
     def _create_handler(self):
-        """Create HTTP request handler with closure over project_dir"""
+        """Create HTTP request handler"""
         project_dir = self.project_dir
-        fixed_session_id = self.session_id  # Capture session_id for closure
+        fixed_session_id = self.session_id
 
-        class MonitorHandler(BaseHTTPRequestHandler):
+        class Handler(BaseHTTPRequestHandler):
             def log_message(self, format, *args):
-                pass  # Suppress default logging
+                pass
 
             def do_GET(self):
                 if self.path == "/":
-                    self._serve_dashboard()
-                elif self.path == "/events":
-                    self._serve_sse()
-                elif self.path == "/api/summary":
-                    self._serve_summary()
+                    self._serve_html()
+                elif self.path == "/admin":
+                    self._serve_admin_html()
+                elif self.path == "/api/data":
+                    self._serve_data()
                 elif self.path == "/api/events":
                     self._serve_events()
+                elif self.path == "/api/admin":
+                    self._serve_admin_data()
                 else:
                     self.send_error(404)
 
-            def _serve_dashboard(self):
-                """Serve the HTML dashboard"""
+            def _serve_html(self):
                 self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
-
-            def _serve_sse(self):
-                """Server-Sent Events endpoint for live updates"""
-                self.send_response(200)
-                self.send_header("Content-Type", "text/event-stream")
-                self.send_header("Cache-Control", "no-cache")
-                self.send_header("Connection", "keep-alive")
-                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Pragma", "no-cache")
+                self.send_header("Expires", "0")
                 self.end_headers()
 
-                # Use fixed session if provided, otherwise find latest
-                session_id = fixed_session_id or get_latest_session(project_dir)
-                if not session_id:
-                    self.wfile.write(b"data: {\"error\": \"no_session\", \"message\": \"No active session found\"}\n\n")
-                    self.wfile.flush()
-                    return
-
-                session_file = project_dir / "audit" / f"session_{session_id}.jsonl"
-                last_position = 0
-
-                # Send initial connection message
-                self.wfile.write(f"data: {{\"event_type\": \"connected\", \"session_id\": \"{session_id}\", \"file\": \"{session_file.name}\"}}\n\n".encode("utf-8"))
-                self.wfile.flush()
-
-                try:
-                    while True:
-                        if session_file.exists():
-                            with open(session_file, "r", encoding="utf-8") as f:
-                                f.seek(last_position)
-                                for line in f:
-                                    line = line.strip()
-                                    if line:
-                                        self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
-                                        self.wfile.flush()
-                                last_position = f.tell()
-                        time.sleep(0.5)
-                except (BrokenPipeError, ConnectionResetError):
-                    pass
-
-            def _serve_summary(self):
-                """Serve JSON summary"""
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-
-                session_id = fixed_session_id or get_latest_session(project_dir)
-                events = read_session_events(project_dir, session_id) if session_id else []
-
-                summary = {
-                    "session_id": session_id or "none",
-                    "project_id": project_dir.name,
-                    "event_count": len(events),
-                    "agent_calls": sum(1 for e in events if e.get("event_type") == "agent_call"),
-                    "gate_votes": sum(1 for e in events if e.get("event_type") == "gate_vote"),
-                    "total_tokens": sum(e.get("input_tokens", 0) + e.get("output_tokens", 0) for e in events),
-                    "total_cost": sum(e.get("cost_usd", 0) for e in events),
-                    "current_phase": next((e.get("phase") for e in reversed(events) if e.get("event_type") == "phase_change"), "unknown")
-                }
-
-                self.wfile.write(json.dumps(summary).encode("utf-8"))
-
-            def _serve_events(self):
-                """Serve all events as JSON"""
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-
-                session_id = fixed_session_id or get_latest_session(project_dir)
-                events = read_session_events(project_dir, session_id) if session_id else []
-                self.wfile.write(json.dumps(events).encode("utf-8"))
-
-        return MonitorHandler
-
-
-# Embedded HTML Dashboard
-DASHBOARD_HTML = """<!DOCTYPE html>
+                html = """<!DOCTYPE html>
 <html>
 <head>
+    <title>AI-Dev Monitor</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI-Dev-Workflow Monitor</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #334155;
-        }
-        .header h1 { font-size: 1.5rem; color: #f1f5f9; }
-        .live-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #10b981;
-            font-size: 0.9rem;
-        }
-        .live-dot {
-            width: 10px;
-            height: 10px;
-            background: #10b981;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        .stat-card {
-            background: #1e293b;
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
-        }
-        .stat-value {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #f1f5f9;
-        }
-        .stat-label {
-            font-size: 0.85rem;
-            color: #94a3b8;
-            margin-top: 5px;
-        }
-        .stat-card.success .stat-value { color: #10b981; }
-        .stat-card.cost .stat-value { color: #f59e0b; }
-        .info-bar {
-            display: flex;
-            gap: 30px;
-            background: #1e293b;
-            border-radius: 10px;
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-        }
-        .info-item { display: flex; gap: 8px; }
-        .info-label { color: #64748b; }
-        .info-value { color: #e2e8f0; font-weight: 500; }
-        .activity-section {
-            background: #1e293b;
-            border-radius: 10px;
-            padding: 20px;
-        }
-        .activity-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .activity-header h2 { font-size: 1.1rem; color: #f1f5f9; }
-        .activity-feed {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-        .event {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 12px;
-            border-bottom: 1px solid #334155;
-        }
+        body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+        h1 { color: #00d4ff; margin-bottom: 20px; }
+        .status { background: #252545; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .status span { margin-right: 30px; }
+        .status .label { color: #888; }
+        .status .value { color: #fff; font-weight: bold; }
+        .stats { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat { background: #252545; padding: 15px 25px; border-radius: 8px; text-align: center; min-width: 120px; }
+        .stat .num { font-size: 2em; font-weight: bold; color: #00d4ff; }
+        .stat .lbl { color: #888; font-size: 0.9em; }
+        .stat.cost .num { color: #00ff88; }
+        .stat .sub { color: #666; font-size: 0.75em; margin-top: 4px; }
+        .events { background: #252545; border-radius: 8px; padding: 15px; }
+        .events h2 { margin-bottom: 15px; color: #00d4ff; }
+        .event { padding: 10px; border-bottom: 1px solid #333; font-family: monospace; font-size: 0.9em; }
         .event:last-child { border-bottom: none; }
-        .event-time {
-            font-size: 0.8rem;
-            color: #64748b;
-            white-space: nowrap;
-            font-family: monospace;
-        }
-        .event-icon {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            flex-shrink: 0;
-        }
-        .event-icon.success { background: #064e3b; color: #10b981; }
-        .event-icon.failure { background: #7f1d1d; color: #f87171; }
-        .event-icon.pending { background: #1e3a8a; color: #60a5fa; }
-        .event-icon.phase { background: #4c1d95; color: #a78bfa; }
-        .event-content { flex: 1; min-width: 0; }
-        .event-title { color: #e2e8f0; font-size: 0.9rem; }
-        .event-meta {
-            display: flex;
-            gap: 15px;
-            margin-top: 4px;
-            font-size: 0.8rem;
-            color: #64748b;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #64748b;
-        }
+        .event .time { color: #888; }
+        .event .type { color: #00d4ff; font-weight: bold; }
+        .event .agent { color: #ffd700; }
+        .event .ok { color: #00ff88; }
+        .event .fail { color: #ff6b6b; }
+        .event .detail { color: #aaa; margin-top: 5px; white-space: pre-wrap; }
+        .event .tokens { color: #888; font-size: 0.85em; }
+        .event .cost { color: #00ff88; font-size: 0.85em; }
+        .refresh { color: #888; font-size: 0.8em; margin-top: 10px; }
+        #error { color: #ff6b6b; padding: 10px; display: none; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>AI-Dev-Workflow Monitor</h1>
-        <div class="live-indicator">
-            <div class="live-dot"></div>
-            <span>LIVE</span>
-            <span id="current-time"></span>
+    <h1>AI-Dev-Workflow Monitor</h1>
+    <div id="error"></div>
+    <div class="status">
+        <span><span class="label">Project:</span> <span class="value" id="project">-</span></span>
+        <span><span class="label">Session:</span> <span class="value" id="session">-</span></span>
+        <span><span class="label">Phase:</span> <span class="value" id="phase">-</span></span>
+    </div>
+    <div class="stats">
+        <div class="stat"><div class="num" id="agents">0</div><div class="lbl">Agent Calls</div></div>
+        <div class="stat"><div class="num" id="gates">0</div><div class="lbl">Gate Votes</div></div>
+        <div class="stat">
+            <div class="num" id="tokens">0</div>
+            <div class="lbl">Total Tokens</div>
+            <div class="sub" id="token-breakdown">In: 0 | Out: 0</div>
+        </div>
+        <div class="stat cost">
+            <div class="num" id="cost">$0.00</div>
+            <div class="lbl">Session Cost</div>
+            <div class="sub" id="cost-rate">$0.00/min</div>
         </div>
     </div>
-
-    <div class="info-bar">
-        <div class="info-item">
-            <span class="info-label">Project:</span>
-            <span class="info-value" id="project-name">-</span>
-        </div>
-        <div class="info-item">
-            <span class="info-label">Session:</span>
-            <span class="info-value" id="session-id">-</span>
-        </div>
-        <div class="info-item">
-            <span class="info-label">Phase:</span>
-            <span class="info-value" id="current-phase">-</span>
-        </div>
+    <div class="events">
+        <h2>Activity Feed</h2>
+        <div id="feed">Loading...</div>
     </div>
-
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-value" id="agent-count">0</div>
-            <div class="stat-label">Agent Calls</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value" id="gate-count">0</div>
-            <div class="stat-label">Gate Votes</div>
-        </div>
-        <div class="stat-card success">
-            <div class="stat-value" id="success-rate">0%</div>
-            <div class="stat-label">Success Rate</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value" id="total-tokens">0</div>
-            <div class="stat-label">Tokens</div>
-        </div>
-        <div class="stat-card cost">
-            <div class="stat-value" id="total-cost">$0.00</div>
-            <div class="stat-label">Total Cost</div>
-        </div>
-    </div>
-
-    <div class="activity-section">
-        <div class="activity-header">
-            <h2>Activity Feed</h2>
-        </div>
-        <div class="activity-feed" id="activity-feed">
-            <div class="empty-state">Waiting for events...</div>
-        </div>
-    </div>
-
+    <div class="refresh">Auto-refreshes every 2 seconds | <a href="/admin" style="color:#00d4ff">Admin Console</a></div>
     <script>
-        // State
-        let stats = {
-            agentCalls: 0,
-            gateVotes: 0,
-            success: 0,
-            failure: 0,
-            tokens: 0,
-            cost: 0
-        };
-        let events = [];
-
-        // Update clock
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('current-time').textContent =
-                now.toLocaleTimeString('en-US', { hour12: false });
+        var startTime = null;
+        function formatNumber(n) {
+            if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+            if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+            return n.toString();
         }
-        setInterval(updateClock, 1000);
-        updateClock();
+        function load() {
+            fetch('/api/data')
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    document.getElementById('error').style.display = 'none';
+                    document.getElementById('project').textContent = d.project || '-';
+                    document.getElementById('session').textContent = d.session || '-';
+                    document.getElementById('phase').textContent = d.phase || '-';
+                    document.getElementById('agents').textContent = d.agent_calls || 0;
+                    document.getElementById('gates').textContent = d.gate_votes || 0;
+                    document.getElementById('tokens').textContent = formatNumber(d.tokens || 0);
+                    document.getElementById('token-breakdown').textContent = 'In: ' + formatNumber(d.input_tokens || 0) + ' | Out: ' + formatNumber(d.output_tokens || 0);
+                    document.getElementById('cost').textContent = '$' + (d.cost || 0).toFixed(4);
 
-        // Load initial summary
-        fetch('/api/summary')
-            .then(r => r.json())
-            .then(data => {
-                document.getElementById('project-name').textContent = data.project_id || '-';
-                document.getElementById('session-id').textContent = data.session_id || '-';
-                document.getElementById('current-phase').textContent = data.current_phase || '-';
-                stats.agentCalls = data.agent_calls || 0;
-                stats.gateVotes = data.gate_votes || 0;
-                stats.tokens = data.total_tokens || 0;
-                stats.cost = data.total_cost || 0;
-                updateStats();
-            });
+                    // Calculate cost rate
+                    if (d.session_start && d.cost > 0) {
+                        var elapsed = (Date.now() - new Date(d.session_start).getTime()) / 60000;
+                        if (elapsed > 0.1) {
+                            var rate = d.cost / elapsed;
+                            document.getElementById('cost-rate').textContent = '$' + rate.toFixed(4) + '/min';
+                        }
+                    }
 
-        // Load existing events
-        fetch('/api/events')
-            .then(r => r.json())
-            .then(data => {
-                events = data;
-                renderEvents();
-            });
+                    var feed = document.getElementById('feed');
+                    if (d.events && d.events.length > 0) {
+                        var html = '';
+                        var recent = d.events.slice(-50).reverse();
+                        for (var i = 0; i < recent.length; i++) {
+                            var e = recent[i];
+                            var time = (e.timestamp || '').substring(11, 19);
+                            var type = e.event_type || 'unknown';
+                            var agent = e.agent || '-';
+                            var status = e.status === 'success' ? 'ok' : (e.status === 'failure' ? 'fail' : '');
+                            var statusText = e.status === 'success' ? '[OK]' : (e.status === 'failure' ? '[FAIL]' : '[-]');
+                            var detail = e.output_summary || '';
+                            var inTok = e.input_tokens || 0;
+                            var outTok = e.output_tokens || 0;
+                            var evtCost = e.cost_usd || 0;
 
-        // SSE for live updates
-        const evtSource = new EventSource('/events');
-        evtSource.onmessage = (e) => {
-            try {
-                const event = JSON.parse(e.data);
-                if (event.error) {
-                    console.warn('SSE error:', event.error, event.message);
-                    return;
-                }
-
-                // Handle connection event
-                if (event.event_type === 'connected') {
-                    console.log('SSE connected to session:', event.session_id);
-                    document.getElementById('current-phase').textContent = 'Connected';
-                    return;
-                }
-
-                events.push(event);
-                stats.tokens += (event.input_tokens || 0) + (event.output_tokens || 0);
-                stats.cost += event.cost_usd || 0;
-
-                if (event.event_type === 'agent_call') stats.agentCalls++;
-                if (event.event_type === 'gate_vote') stats.gateVotes++;
-                if (event.status === 'success') stats.success++;
-                if (event.status === 'failure') stats.failure++;
-                if (event.event_type === 'phase_change') {
-                    document.getElementById('current-phase').textContent =
-                        event.metadata?.new_phase || event.phase || '-';
-                }
-
-                updateStats();
-                addEventToFeed(event);
-            } catch (err) {
-                console.error('SSE parse error:', err);
-            }
-        };
-
-        function updateStats() {
-            document.getElementById('agent-count').textContent = stats.agentCalls;
-            document.getElementById('gate-count').textContent = stats.gateVotes;
-            document.getElementById('total-tokens').textContent =
-                stats.tokens > 1000 ? Math.round(stats.tokens/1000) + 'k' : stats.tokens;
-            document.getElementById('total-cost').textContent = '$' + stats.cost.toFixed(2);
-
-            const total = stats.success + stats.failure;
-            const rate = total > 0 ? Math.round((stats.success / total) * 100) : 100;
-            document.getElementById('success-rate').textContent = rate + '%';
+                            html += '<div class="event">';
+                            html += '<span class="time">' + time + '</span> ';
+                            html += '<span class="' + status + '">' + statusText + '</span> ';
+                            html += '<span class="type">' + type + '</span> ';
+                            html += '<span class="agent">' + agent + '</span>';
+                            if (inTok > 0 || outTok > 0 || evtCost > 0) {
+                                html += ' <span class="tokens">[' + inTok + '/' + outTok + ' tok]</span>';
+                                html += ' <span class="cost">$' + evtCost.toFixed(4) + '</span>';
+                            }
+                            if (detail) {
+                                html += '<div class="detail">' + detail.substring(0, 500) + '</div>';
+                            }
+                            html += '</div>';
+                        }
+                        feed.innerHTML = html;
+                    } else {
+                        feed.innerHTML = '<div class="event">Waiting for events...</div>';
+                    }
+                })
+                .catch(function(err) {
+                    document.getElementById('error').textContent = 'Error: ' + err.message;
+                    document.getElementById('error').style.display = 'block';
+                });
         }
-
-        function renderEvents() {
-            const feed = document.getElementById('activity-feed');
-            if (events.length === 0) {
-                feed.innerHTML = '<div class="empty-state">Waiting for events...</div>';
-                return;
-            }
-            feed.innerHTML = '';
-            events.slice(-50).reverse().forEach(e => addEventToFeed(e, false));
-        }
-
-        function addEventToFeed(event, prepend = true) {
-            const feed = document.getElementById('activity-feed');
-
-            // Remove empty state if present
-            const empty = feed.querySelector('.empty-state');
-            if (empty) empty.remove();
-
-            const div = document.createElement('div');
-            div.className = 'event';
-
-            const time = (event.timestamp || '').substring(11, 19);
-            const type = event.event_type || 'unknown';
-            const agent = event.agent || '-';
-            const status = event.status || '';
-
-            let iconClass = 'pending';
-            let iconText = '?';
-
-            if (status === 'success') { iconClass = 'success'; iconText = '\\u2713'; }
-            else if (status === 'failure') { iconClass = 'failure'; iconText = '\\u2717'; }
-            else if (type === 'phase_change') { iconClass = 'phase'; iconText = '\\u279C'; }
-
-            let title = agent;
-            let meta = [];
-
-            if (type === 'agent_call') {
-                meta.push((event.duration_ms || 0) + 'ms');
-                meta.push('$' + (event.cost_usd || 0).toFixed(4));
-                meta.push((event.input_tokens || 0) + (event.output_tokens || 0) + ' tok');
-            } else if (type === 'gate_vote') {
-                const m = event.metadata || {};
-                title = 'GATE: ' + agent;
-                meta.push(m.passed ? 'PASSED' : 'FAILED');
-                meta.push(m.votes_for + ' for / ' + m.votes_against + ' against');
-            } else if (type === 'phase_change') {
-                const m = event.metadata || {};
-                title = 'Phase: ' + (m.old_phase || '?') + ' \\u2192 ' + (m.new_phase || '?');
-            } else if (type === 'escalation') {
-                title = 'ESCALATION: ' + (event.input_summary || '').substring(0, 50);
-            } else if (type === 'session_start') {
-                iconClass = 'success';
-                iconText = '\\u25B6';
-                title = 'Session Started';
-                meta.push('Project: ' + event.project_id);
-            } else if (type === 'decision') {
-                iconClass = 'phase';
-                iconText = '\\u2714';
-                title = 'Decision: ' + (event.output_summary || '').substring(0, 50);
-            }
-
-            div.innerHTML = ` + "`" + `
-                <span class="event-time">${time}</span>
-                <div class="event-icon ${iconClass}">${iconText}</div>
-                <div class="event-content">
-                    <div class="event-title">${title}</div>
-                    <div class="event-meta">${meta.map(m => '<span>' + m + '</span>').join('')}</div>
-                </div>
-            ` + "`" + `;
-
-            if (prepend) {
-                feed.insertBefore(div, feed.firstChild);
-                // Keep only last 50 events in DOM
-                while (feed.children.length > 50) {
-                    feed.removeChild(feed.lastChild);
-                }
-            } else {
-                feed.appendChild(div);
-            }
-        }
+        load();
+        setInterval(load, 2000);
     </script>
 </body>
-</html>
-"""
+</html>"""
+                self.wfile.write(html.encode())
+
+            def _serve_data(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+
+                session_id = fixed_session_id or get_latest_session(project_dir)
+                events = read_session_events(project_dir, session_id) if session_id else []
+
+                # Find current phase and session start
+                phase = "unknown"
+                session_start = None
+                for e in events:
+                    if not session_start and e.get("timestamp"):
+                        session_start = e.get("timestamp")
+                for e in reversed(events):
+                    if e.get("event_type") == "phase_change":
+                        phase = e.get("metadata", {}).get("new_phase", "unknown")
+                        break
+
+                input_tokens = sum(e.get("input_tokens", 0) for e in events)
+                output_tokens = sum(e.get("output_tokens", 0) for e in events)
+
+                data = {
+                    "project": project_dir.name,
+                    "session": session_id or "none",
+                    "phase": phase,
+                    "session_start": session_start,
+                    "agent_calls": sum(1 for e in events if e.get("event_type") == "agent_call"),
+                    "gate_votes": sum(1 for e in events if e.get("event_type") == "gate_vote"),
+                    "tokens": input_tokens + output_tokens,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "cost": sum(e.get("cost_usd", 0) for e in events),
+                    "events": events
+                }
+
+                self.wfile.write(json.dumps(data).encode())
+
+            def _serve_events(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+
+                session_id = fixed_session_id or get_latest_session(project_dir)
+                events = read_session_events(project_dir, session_id) if session_id else []
+                self.wfile.write(json.dumps(events).encode())
+
+            def _serve_admin_html(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+
+                admin_html = """<!DOCTYPE html>
+<html>
+<head>
+    <title>AI-Dev Admin Console</title>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #0f0f1a; color: #eee; display: flex; }
+        .sidebar { width: 200px; background: #1a1a2e; min-height: 100vh; padding: 20px 0; border-right: 1px solid #252545; position: fixed; }
+        .sidebar h2 { color: #00d4ff; font-size: 1.1em; padding: 0 20px; margin-bottom: 20px; }
+        .sidebar a { display: block; padding: 12px 20px; color: #aaa; text-decoration: none; border-left: 3px solid transparent; }
+        .sidebar a:hover { background: #252545; color: #fff; }
+        .sidebar a.active { background: #252545; color: #00d4ff; border-left-color: #00d4ff; }
+        .sidebar .icon { margin-right: 10px; }
+        .main { margin-left: 200px; padding: 20px; flex: 1; }
+        h1 { color: #00d4ff; margin-bottom: 10px; }
+        .subtitle { color: #888; margin-bottom: 20px; }
+        .totals { display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap; }
+        .total { background: linear-gradient(135deg, #252545 0%, #1a1a2e 100%); padding: 20px 30px; border-radius: 12px; min-width: 180px; border: 1px solid #333; }
+        .total .num { font-size: 2.5em; font-weight: bold; color: #00ff88; }
+        .total .lbl { color: #888; font-size: 0.9em; margin-top: 5px; }
+        .total .sub { color: #666; font-size: 0.8em; margin-top: 8px; }
+        .total.tokens .num { color: #00d4ff; }
+        .section { background: #1a1a2e; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #252545; }
+        .section h2 { color: #00d4ff; margin-bottom: 15px; font-size: 1.2em; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px; color: #888; border-bottom: 1px solid #333; font-weight: normal; }
+        td { padding: 12px; border-bottom: 1px solid #252545; }
+        tr:hover { background: #252545; }
+        .cost { color: #00ff88; font-weight: bold; }
+        .tokens { color: #00d4ff; }
+        .date { color: #888; }
+        .project-name { color: #ffd700; }
+        .refresh { color: #888; font-size: 0.8em; margin-top: 10px; }
+        a { color: #00d4ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .chart { height: 200px; background: #252545; border-radius: 8px; margin-top: 15px; display: flex; align-items: flex-end; padding: 10px; gap: 2px; }
+        .bar { background: linear-gradient(180deg, #00d4ff 0%, #0088aa 100%); min-width: 20px; border-radius: 3px 3px 0 0; transition: height 0.3s; }
+        .bar:hover { background: linear-gradient(180deg, #00ff88 0%, #00aa66 100%); }
+        .chart-label { text-align: center; color: #666; font-size: 0.7em; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>AI-Dev Workflow</h2>
+        <a href="/"><span class="icon">&#9776;</span> Monitor</a>
+        <a href="/admin" class="active"><span class="icon">&#9881;</span> Admin</a>
+    </div>
+    <div class="main">
+    <h1>Admin Console</h1>
+    <div class="subtitle">Claude API Usage Tracking Across All Projects</div>
+
+    <div class="totals">
+        <div class="total">
+            <div class="num" id="total-cost">$0.00</div>
+            <div class="lbl">Total Cost (All Time)</div>
+            <div class="sub" id="today-cost">Today: $0.00</div>
+        </div>
+        <div class="total tokens">
+            <div class="num" id="total-tokens">0</div>
+            <div class="lbl">Total Tokens</div>
+            <div class="sub" id="token-split">In: 0 | Out: 0</div>
+        </div>
+        <div class="total">
+            <div class="num" id="total-sessions">0</div>
+            <div class="lbl">Total Sessions</div>
+            <div class="sub" id="projects-count">0 projects</div>
+        </div>
+        <div class="total">
+            <div class="num" id="avg-cost">$0.00</div>
+            <div class="lbl">Avg Cost/Session</div>
+            <div class="sub" id="cost-range">-</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Daily Cost (Last 7 Days)</h2>
+        <div class="chart" id="daily-chart"></div>
+    </div>
+
+    <div class="section">
+        <h2>Projects</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Project</th>
+                    <th>Sessions</th>
+                    <th>Total Tokens</th>
+                    <th>Total Cost</th>
+                    <th>Last Activity</th>
+                </tr>
+            </thead>
+            <tbody id="projects-table">
+                <tr><td colspan="5">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Recent Sessions</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Session</th>
+                    <th>Project</th>
+                    <th>Date</th>
+                    <th>Agent Calls</th>
+                    <th>Tokens</th>
+                    <th>Cost</th>
+                </tr>
+            </thead>
+            <tbody id="sessions-table">
+                <tr><td colspan="6">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="refresh">Auto-refreshes every 10 seconds</div>
+
+    <script>
+        function formatNumber(n) {
+            if (n >= 1000000) return (n/1000000).toFixed(2) + 'M';
+            if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+            return n.toString();
+        }
+        function formatDate(d) {
+            if (!d) return '-';
+            return d.substring(0, 10) + ' ' + d.substring(11, 16);
+        }
+        function load() {
+            fetch('/api/admin')
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    // Totals
+                    document.getElementById('total-cost').textContent = '$' + (d.total_cost || 0).toFixed(4);
+                    document.getElementById('today-cost').textContent = 'Today: $' + (d.today_cost || 0).toFixed(4);
+                    document.getElementById('total-tokens').textContent = formatNumber(d.total_tokens || 0);
+                    document.getElementById('token-split').textContent = 'In: ' + formatNumber(d.total_input_tokens || 0) + ' | Out: ' + formatNumber(d.total_output_tokens || 0);
+                    document.getElementById('total-sessions').textContent = d.total_sessions || 0;
+                    document.getElementById('projects-count').textContent = (d.total_projects || 0) + ' projects';
+                    var avgCost = d.total_sessions > 0 ? d.total_cost / d.total_sessions : 0;
+                    document.getElementById('avg-cost').textContent = '$' + avgCost.toFixed(4);
+                    if (d.min_session_cost !== undefined && d.max_session_cost !== undefined) {
+                        document.getElementById('cost-range').textContent = 'Range: $' + d.min_session_cost.toFixed(4) + ' - $' + d.max_session_cost.toFixed(4);
+                    }
+
+                    // Daily chart
+                    var chartHtml = '';
+                    var dailyCosts = d.daily_costs || [];
+                    var maxCost = Math.max.apply(null, dailyCosts.map(function(x) { return x.cost; })) || 1;
+                    for (var i = 0; i < dailyCosts.length; i++) {
+                        var day = dailyCosts[i];
+                        var height = Math.max(5, (day.cost / maxCost) * 180);
+                        chartHtml += '<div style="flex:1;text-align:center;">';
+                        chartHtml += '<div class="bar" style="height:' + height + 'px" title="' + day.date + ': $' + day.cost.toFixed(4) + '"></div>';
+                        chartHtml += '<div class="chart-label">' + day.date.substring(5) + '</div>';
+                        chartHtml += '</div>';
+                    }
+                    document.getElementById('daily-chart').innerHTML = chartHtml || '<div style="color:#666;padding:20px;">No data</div>';
+
+                    // Projects table
+                    var projectsHtml = '';
+                    var projects = d.projects || [];
+                    for (var i = 0; i < projects.length; i++) {
+                        var p = projects[i];
+                        projectsHtml += '<tr>';
+                        projectsHtml += '<td class="project-name">' + p.name + '</td>';
+                        projectsHtml += '<td>' + p.sessions + '</td>';
+                        projectsHtml += '<td class="tokens">' + formatNumber(p.tokens) + '</td>';
+                        projectsHtml += '<td class="cost">$' + p.cost.toFixed(4) + '</td>';
+                        projectsHtml += '<td class="date">' + formatDate(p.last_activity) + '</td>';
+                        projectsHtml += '</tr>';
+                    }
+                    document.getElementById('projects-table').innerHTML = projectsHtml || '<tr><td colspan="5">No projects</td></tr>';
+
+                    // Sessions table
+                    var sessionsHtml = '';
+                    var sessions = d.sessions || [];
+                    for (var i = 0; i < Math.min(sessions.length, 20); i++) {
+                        var s = sessions[i];
+                        sessionsHtml += '<tr>';
+                        sessionsHtml += '<td>' + s.session_id.substring(0, 16) + '</td>';
+                        sessionsHtml += '<td class="project-name">' + s.project + '</td>';
+                        sessionsHtml += '<td class="date">' + formatDate(s.started_at) + '</td>';
+                        sessionsHtml += '<td>' + s.agent_calls + '</td>';
+                        sessionsHtml += '<td class="tokens">' + formatNumber(s.tokens) + '</td>';
+                        sessionsHtml += '<td class="cost">$' + s.cost.toFixed(4) + '</td>';
+                        sessionsHtml += '</tr>';
+                    }
+                    document.getElementById('sessions-table').innerHTML = sessionsHtml || '<tr><td colspan="6">No sessions</td></tr>';
+                })
+                .catch(function(err) {
+                    console.error('Admin data error:', err);
+                });
+        }
+        load();
+        setInterval(load, 10000);
+    </script>
+    </div>
+</body>
+</html>"""
+                self.wfile.write(admin_html.encode())
+
+            def _serve_admin_data(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+
+                # Collect data from all projects
+                from core.admin import AdminTracker
+                tracker = AdminTracker(project_dir.parent)
+                data = tracker.get_summary()
+                self.wfile.write(json.dumps(data).encode())
+
+        return Handler
+
+
+class StandaloneServer:
+    """Standalone web server for dashboard access without active workflow"""
+
+    def __init__(self, projects_dir: Path, port: int = 8765):
+        self.projects_dir = Path(projects_dir)
+        self.port = port
+        self.server = None
+
+    def start(self, open_browser: bool = True):
+        """Start the standalone server"""
+        handler = self._create_handler()
+        self.server = HTTPServer(("localhost", self.port), handler)
+
+        print(f"Dashboard server running on http://localhost:{self.port}")
+
+        if open_browser:
+            webbrowser.open(f"http://localhost:{self.port}/admin")
+
+        try:
+            self.server.serve_forever()
+        except KeyboardInterrupt:
+            print("\nShutting down server...")
+
+    def _create_handler(self):
+        """Create HTTP request handler for standalone mode"""
+        projects_dir = self.projects_dir
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, format, *args):
+                pass  # Suppress logging
+
+            def do_GET(self):
+                if self.path == "/":
+                    self._serve_monitor_html()
+                elif self.path == "/admin":
+                    self._serve_admin_html()
+                elif self.path == "/api/data":
+                    self._serve_monitor_data()
+                elif self.path == "/api/admin":
+                    self._serve_admin_data()
+                else:
+                    self.send_error(404)
+
+            def _serve_monitor_html(self):
+                """Serve monitor page - shows waiting state or active session"""
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+
+                html = """<!DOCTYPE html>
+<html>
+<head>
+    <title>AI-Dev Monitor</title>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; display: flex; }
+        .sidebar { width: 200px; background: #151525; min-height: 100vh; padding: 20px 0; border-right: 1px solid #252545; position: fixed; }
+        .sidebar h2 { color: #00d4ff; font-size: 1.1em; padding: 0 20px; margin-bottom: 20px; }
+        .sidebar a { display: block; padding: 12px 20px; color: #aaa; text-decoration: none; border-left: 3px solid transparent; }
+        .sidebar a:hover { background: #252545; color: #fff; }
+        .sidebar a.active { background: #252545; color: #00d4ff; border-left-color: #00d4ff; }
+        .sidebar .icon { margin-right: 10px; }
+        .main { margin-left: 200px; padding: 20px; flex: 1; }
+        h1 { color: #00d4ff; margin-bottom: 20px; }
+        .status { background: #252545; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .status span { margin-right: 30px; }
+        .status .label { color: #888; }
+        .status .value { color: #fff; font-weight: bold; }
+        .stats { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat { background: #252545; padding: 15px 25px; border-radius: 8px; text-align: center; min-width: 120px; }
+        .stat .num { font-size: 2em; font-weight: bold; color: #00d4ff; }
+        .stat .lbl { color: #888; font-size: 0.9em; }
+        .stat.cost .num { color: #00ff88; }
+        .stat .sub { color: #666; font-size: 0.75em; margin-top: 4px; }
+        .events { background: #252545; border-radius: 8px; padding: 15px; }
+        .events h2 { margin-bottom: 15px; color: #00d4ff; }
+        .event { padding: 10px; border-bottom: 1px solid #333; font-family: monospace; font-size: 0.9em; }
+        .event:last-child { border-bottom: none; }
+        .event .time { color: #888; }
+        .event .type { color: #00d4ff; font-weight: bold; }
+        .event .agent { color: #ffd700; }
+        .event .ok { color: #00ff88; }
+        .event .fail { color: #ff6b6b; }
+        .event .tokens { color: #888; font-size: 0.85em; }
+        .event .cost { color: #00ff88; font-size: 0.85em; }
+        .event .detail { color: #aaa; margin-top: 8px; white-space: pre-wrap; font-size: 0.85em; line-height: 1.4; background: #1a1a2e; padding: 10px; border-radius: 4px; }
+        .waiting { text-align: center; padding: 60px 20px; }
+        .waiting .icon { font-size: 4em; margin-bottom: 20px; }
+        .waiting h2 { color: #888; margin-bottom: 10px; }
+        .waiting p { color: #666; }
+        .refresh { color: #888; font-size: 0.8em; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>AI-Dev Workflow</h2>
+        <a href="/" class="active"><span class="icon">&#9776;</span> Monitor</a>
+        <a href="/admin"><span class="icon">&#9881;</span> Admin</a>
+    </div>
+    <div class="main">
+    <h1>Session Monitor</h1>
+    <div id="content">
+        <div class="waiting">
+            <div class="icon">&#128260;</div>
+            <h2>Waiting for workflow...</h2>
+            <p>Start a workflow to see real-time activity</p>
+        </div>
+    </div>
+    <div class="refresh">Auto-refreshes every 2 seconds</div>
+    </div>
+    <script>
+        var lastEventCount = 0;
+        function formatNumber(n) {
+            if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+            if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+            return n.toString();
+        }
+        function load() {
+            var scrollY = window.scrollY;
+            fetch('/api/data')
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (!d.session || d.session === 'none' || !d.events || d.events.length === 0) {
+                        document.getElementById('content').innerHTML = '<div class="waiting"><div class="icon">&#128260;</div><h2>Waiting for workflow...</h2><p>Start a workflow to see real-time activity</p></div>';
+                        return;
+                    }
+                    var eventCount = d.events ? d.events.length : 0;
+                    var html = '<div class="status">';
+                    html += '<span><span class="label">Project:</span> <span class="value">' + (d.project || '-') + '</span></span>';
+                    html += '<span><span class="label">Session:</span> <span class="value">' + (d.session || '-') + '</span></span>';
+                    html += '<span><span class="label">Phase:</span> <span class="value">' + (d.phase || '-') + '</span></span>';
+                    html += '</div>';
+                    html += '<div class="stats">';
+                    html += '<div class="stat"><div class="num">' + (d.agent_calls || 0) + '</div><div class="lbl">Agent Calls</div></div>';
+                    html += '<div class="stat"><div class="num">' + (d.gate_votes || 0) + '</div><div class="lbl">Gate Votes</div></div>';
+                    html += '<div class="stat"><div class="num">' + formatNumber(d.tokens || 0) + '</div><div class="lbl">Total Tokens</div><div class="sub">In: ' + formatNumber(d.input_tokens || 0) + ' | Out: ' + formatNumber(d.output_tokens || 0) + '</div></div>';
+                    html += '<div class="stat cost"><div class="num">$' + (d.cost || 0).toFixed(4) + '</div><div class="lbl">Session Cost</div></div>';
+                    html += '</div>';
+                    html += '<div class="events"><h2>Activity Feed (' + eventCount + ' events)</h2><div id="feed">';
+                    if (d.events && d.events.length > 0) {
+                        var recent = d.events.slice(-100).reverse();
+                        for (var i = 0; i < recent.length; i++) {
+                            var e = recent[i];
+                            var time = (e.timestamp || '').substring(11, 19);
+                            var type = e.event_type || 'unknown';
+                            var agent = e.agent || '-';
+                            var status = e.status === 'success' ? 'ok' : (e.status === 'failure' ? 'fail' : '');
+                            var statusText = e.status === 'success' ? '[OK]' : (e.status === 'failure' ? '[FAIL]' : '[-]');
+                            var inTok = e.input_tokens || 0;
+                            var outTok = e.output_tokens || 0;
+                            var evtCost = e.cost_usd || 0;
+                            var detail = e.output_summary || '';
+                            var duration = e.duration_ms || 0;
+                            html += '<div class="event">';
+                            html += '<span class="time">' + time + '</span> ';
+                            html += '<span class="' + status + '">' + statusText + '</span> ';
+                            html += '<span class="type">' + type + '</span> ';
+                            html += '<span class="agent">' + agent + '</span>';
+                            if (duration > 0) html += ' <span class="tokens">' + duration + 'ms</span>';
+                            if (inTok > 0 || outTok > 0) html += ' <span class="tokens">[' + inTok + '/' + outTok + ' tok]</span>';
+                            if (evtCost > 0) html += ' <span class="cost">$' + evtCost.toFixed(4) + '</span>';
+                            if (detail) html += '<div class="detail">' + detail.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+                            html += '</div>';
+                        }
+                    }
+                    html += '</div></div>';
+                    document.getElementById('content').innerHTML = html;
+                    // Restore scroll position
+                    window.scrollTo(0, scrollY);
+                    lastEventCount = eventCount;
+                })
+                .catch(function(err) { console.error(err); });
+        }
+        load();
+        setInterval(load, 2000);
+    </script>
+</body>
+</html>"""
+                self.wfile.write(html.encode())
+
+            def _serve_monitor_data(self):
+                """Serve monitor data - find most recent active session"""
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+
+                # Find most recent session across all projects
+                best_session = None
+                best_project = None
+                best_time = None
+
+                for project_dir in projects_dir.iterdir():
+                    if project_dir.is_dir():
+                        audit_dir = project_dir / "audit"
+                        if audit_dir.exists():
+                            for session_file in audit_dir.glob("session_*.jsonl"):
+                                # Get modification time
+                                mtime = session_file.stat().st_mtime
+                                if best_time is None or mtime > best_time:
+                                    best_time = mtime
+                                    best_session = session_file.stem.replace("session_", "")
+                                    best_project = project_dir
+
+                if not best_session or not best_project:
+                    self.wfile.write(json.dumps({"session": None, "events": []}).encode())
+                    return
+
+                # Read the session
+                events = read_session_events(best_project, best_session)
+
+                # Find phase
+                phase = "unknown"
+                session_start = None
+                for e in events:
+                    if not session_start and e.get("timestamp"):
+                        session_start = e.get("timestamp")
+                for e in reversed(events):
+                    if e.get("event_type") == "phase_change":
+                        phase = e.get("metadata", {}).get("new_phase", "unknown")
+                        break
+
+                input_tokens = sum(e.get("input_tokens", 0) for e in events)
+                output_tokens = sum(e.get("output_tokens", 0) for e in events)
+
+                data = {
+                    "project": best_project.name,
+                    "session": best_session,
+                    "phase": phase,
+                    "session_start": session_start,
+                    "agent_calls": sum(1 for e in events if e.get("event_type") == "agent_call"),
+                    "gate_votes": sum(1 for e in events if e.get("event_type") == "gate_vote"),
+                    "tokens": input_tokens + output_tokens,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "cost": sum(e.get("cost_usd", 0) for e in events),
+                    "events": events[-100:] if events else []  # Last 100 events
+                }
+                self.wfile.write(json.dumps(data).encode())
+
+            def _serve_admin_html(self):
+                """Serve admin page"""
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+
+                admin_html = """<!DOCTYPE html>
+<html>
+<head>
+    <title>AI-Dev Admin Console</title>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #0f0f1a; color: #eee; display: flex; }
+        .sidebar { width: 200px; background: #1a1a2e; min-height: 100vh; padding: 20px 0; border-right: 1px solid #252545; position: fixed; }
+        .sidebar h2 { color: #00d4ff; font-size: 1.1em; padding: 0 20px; margin-bottom: 20px; }
+        .sidebar a { display: block; padding: 12px 20px; color: #aaa; text-decoration: none; border-left: 3px solid transparent; }
+        .sidebar a:hover { background: #252545; color: #fff; }
+        .sidebar a.active { background: #252545; color: #00d4ff; border-left-color: #00d4ff; }
+        .sidebar .icon { margin-right: 10px; }
+        .main { margin-left: 200px; padding: 20px; flex: 1; }
+        h1 { color: #00d4ff; margin-bottom: 10px; }
+        .subtitle { color: #888; margin-bottom: 20px; }
+        .totals { display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap; }
+        .total { background: linear-gradient(135deg, #252545 0%, #1a1a2e 100%); padding: 20px 30px; border-radius: 12px; min-width: 180px; border: 1px solid #333; }
+        .total .num { font-size: 2.5em; font-weight: bold; color: #00ff88; }
+        .total .lbl { color: #888; font-size: 0.9em; margin-top: 5px; }
+        .total .sub { color: #666; font-size: 0.8em; margin-top: 8px; }
+        .total.tokens .num { color: #00d4ff; }
+        .section { background: #1a1a2e; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #252545; }
+        .section h2 { color: #00d4ff; margin-bottom: 15px; font-size: 1.2em; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px; color: #888; border-bottom: 1px solid #333; font-weight: normal; }
+        td { padding: 12px; border-bottom: 1px solid #252545; }
+        tr:hover { background: #252545; }
+        .cost { color: #00ff88; font-weight: bold; }
+        .tokens { color: #00d4ff; }
+        .date { color: #888; }
+        .project-name { color: #ffd700; }
+        .refresh { color: #888; font-size: 0.8em; margin-top: 10px; }
+        a { color: #00d4ff; text-decoration: none; }
+        .chart { height: 200px; background: #252545; border-radius: 8px; margin-top: 15px; display: flex; align-items: flex-end; padding: 10px; gap: 2px; }
+        .bar { background: linear-gradient(180deg, #00d4ff 0%, #0088aa 100%); min-width: 20px; border-radius: 3px 3px 0 0; }
+        .bar:hover { background: linear-gradient(180deg, #00ff88 0%, #00aa66 100%); }
+        .chart-label { text-align: center; color: #666; font-size: 0.7em; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>AI-Dev Workflow</h2>
+        <a href="/"><span class="icon">&#9776;</span> Monitor</a>
+        <a href="/admin" class="active"><span class="icon">&#9881;</span> Admin</a>
+    </div>
+    <div class="main">
+    <h1>Admin Console</h1>
+    <div class="subtitle">Claude API Usage Tracking Across All Projects</div>
+    <div class="totals">
+        <div class="total"><div class="num" id="total-cost">$0.00</div><div class="lbl">Total Cost</div><div class="sub" id="today-cost">Today: $0.00</div></div>
+        <div class="total tokens"><div class="num" id="total-tokens">0</div><div class="lbl">Total Tokens</div><div class="sub" id="token-split">In: 0 | Out: 0</div></div>
+        <div class="total"><div class="num" id="total-sessions">0</div><div class="lbl">Sessions</div><div class="sub" id="projects-count">0 projects</div></div>
+        <div class="total"><div class="num" id="avg-cost">$0.00</div><div class="lbl">Avg/Session</div></div>
+    </div>
+    <div class="section"><h2>Daily Cost (Last 7 Days)</h2><div class="chart" id="daily-chart"></div></div>
+    <div class="section"><h2>Projects</h2>
+        <table><thead><tr><th>Project</th><th>Sessions</th><th>Tokens</th><th>Cost</th><th>Last Activity</th></tr></thead>
+        <tbody id="projects-table"><tr><td colspan="5">Loading...</td></tr></tbody></table>
+    </div>
+    <div class="section"><h2>Recent Sessions</h2>
+        <table><thead><tr><th>Session</th><th>Project</th><th>Date</th><th>Calls</th><th>Tokens</th><th>Cost</th></tr></thead>
+        <tbody id="sessions-table"><tr><td colspan="6">Loading...</td></tr></tbody></table>
+    </div>
+    <div class="refresh">Auto-refreshes every 10 seconds</div>
+    </div>
+    <script>
+        function fmt(n) { return n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : n.toString(); }
+        function fmtDate(d) { return d ? d.substring(0,10)+' '+d.substring(11,16) : '-'; }
+        function load() {
+            fetch('/api/admin').then(r=>r.json()).then(d=>{
+                document.getElementById('total-cost').textContent = '$'+(d.total_cost||0).toFixed(4);
+                document.getElementById('today-cost').textContent = 'Today: $'+(d.today_cost||0).toFixed(4);
+                document.getElementById('total-tokens').textContent = fmt(d.total_tokens||0);
+                document.getElementById('token-split').textContent = 'In: '+fmt(d.total_input_tokens||0)+' | Out: '+fmt(d.total_output_tokens||0);
+                document.getElementById('total-sessions').textContent = d.total_sessions||0;
+                document.getElementById('projects-count').textContent = (d.total_projects||0)+' projects';
+                document.getElementById('avg-cost').textContent = '$'+(d.total_sessions>0?d.total_cost/d.total_sessions:0).toFixed(4);
+                var ch='',dc=d.daily_costs||[],mx=Math.max.apply(null,dc.map(x=>x.cost))||1;
+                for(var i=0;i<dc.length;i++){var h=Math.max(5,(dc[i].cost/mx)*180);ch+='<div style="flex:1;text-align:center"><div class="bar" style="height:'+h+'px" title="'+dc[i].date+': $'+dc[i].cost.toFixed(4)+'"></div><div class="chart-label">'+dc[i].date.substring(5)+'</div></div>';}
+                document.getElementById('daily-chart').innerHTML=ch||'<div style="color:#666;padding:20px">No data</div>';
+                var ph='',ps=d.projects||[];for(var i=0;i<ps.length;i++){var p=ps[i];ph+='<tr><td class="project-name">'+p.name+'</td><td>'+p.sessions+'</td><td class="tokens">'+fmt(p.tokens)+'</td><td class="cost">$'+p.cost.toFixed(4)+'</td><td class="date">'+fmtDate(p.last_activity)+'</td></tr>';}
+                document.getElementById('projects-table').innerHTML=ph||'<tr><td colspan="5">No projects</td></tr>';
+                var sh='',ss=d.sessions||[];for(var i=0;i<Math.min(ss.length,20);i++){var s=ss[i];sh+='<tr><td>'+s.session_id.substring(0,16)+'</td><td class="project-name">'+s.project+'</td><td class="date">'+fmtDate(s.started_at)+'</td><td>'+s.agent_calls+'</td><td class="tokens">'+fmt(s.tokens)+'</td><td class="cost">$'+s.cost.toFixed(4)+'</td></tr>';}
+                document.getElementById('sessions-table').innerHTML=sh||'<tr><td colspan="6">No sessions</td></tr>';
+            }).catch(e=>console.error(e));
+        }
+        load();setInterval(load,10000);
+    </script>
+</body>
+</html>"""
+                self.wfile.write(admin_html.encode())
+
+            def _serve_admin_data(self):
+                """Serve admin data"""
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+
+                from core.admin import AdminTracker
+                tracker = AdminTracker(projects_dir)
+                data = tracker.get_summary()
+                self.wfile.write(json.dumps(data).encode())
+
+        return Handler

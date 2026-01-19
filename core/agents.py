@@ -16,6 +16,31 @@ if TYPE_CHECKING:
     from core.audit import AuditLogger
 
 
+# Claude API pricing per 1M tokens (as of 2024)
+# https://www.anthropic.com/pricing
+CLAUDE_PRICING = {
+    "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},
+    "claude-3-5-sonnet-20241022": {"input": 3.00, "output": 15.00},
+    "claude-3-5-sonnet-20240620": {"input": 3.00, "output": 15.00},
+    "claude-3-5-haiku-20241022": {"input": 0.80, "output": 4.00},
+    "claude-3-opus-20240229": {"input": 15.00, "output": 75.00},
+    "claude-3-sonnet-20240229": {"input": 3.00, "output": 15.00},
+    "claude-3-haiku-20240307": {"input": 0.25, "output": 1.25},
+}
+
+
+def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+    """Calculate the cost of an API call based on model and token counts."""
+    pricing = CLAUDE_PRICING.get(model)
+    if not pricing:
+        # Default to Sonnet pricing for unknown models
+        pricing = {"input": 3.00, "output": 15.00}
+
+    input_cost = (input_tokens / 1_000_000) * pricing["input"]
+    output_cost = (output_tokens / 1_000_000) * pricing["output"]
+    return input_cost + output_cost
+
+
 @dataclass
 class AgentConfig:
     """Configuration for a single agent"""
@@ -97,7 +122,7 @@ class AgentFactory:
         if agent.id not in self.system_prompts:
             prompt_path = Path(agent.system_prompt_file)
             if prompt_path.exists():
-                self.system_prompts[agent.id] = prompt_path.read_text()
+                self.system_prompts[agent.id] = prompt_path.read_text(encoding='utf-8')
             else:
                 # Generate default prompt
                 self.system_prompts[agent.id] = self._generate_default_prompt(agent)
@@ -144,7 +169,7 @@ class AgentExecutor:
 
     def __init__(self, factory: AgentFactory, audit_logger: "Optional[AuditLogger]" = None):
         self.factory = factory
-        self.client = anthropic.Anthropic()  # Uses ANTHROPIC_API_KEY env var
+        self.client = anthropic.AsyncAnthropic()  # Async client for parallel execution
         self.audit_logger = audit_logger
         self.current_phase: Optional[str] = None
         self.current_checkpoint: Optional[str] = None
@@ -191,7 +216,7 @@ class AgentExecutor:
         start_time = time.perf_counter()
 
         try:
-            response = self.client.messages.create(
+            response = await self.client.messages.create(
                 model=agent.model,
                 max_tokens=agent.max_tokens,
                 temperature=agent.temperature,
@@ -202,12 +227,17 @@ class AgentExecutor:
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             content = response.content[0].text if response.content else ""
 
+            # Calculate cost
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+            cost = calculate_cost(agent.model, input_tokens, output_tokens)
+
             result = AgentResponse(
                 agent_id=agent_id,
                 role=agent.role,
                 content=content,
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
                 success=True
             )
 
@@ -218,12 +248,13 @@ class AgentExecutor:
                     model=agent.model,
                     input_text=user_content,
                     output_text=content,
-                    input_tokens=response.usage.input_tokens,
-                    output_tokens=response.usage.output_tokens,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
                     duration_ms=duration_ms,
                     phase=self.current_phase,
                     checkpoint=self.current_checkpoint,
-                    success=True
+                    success=True,
+                    cost=cost
                 )
 
             return result

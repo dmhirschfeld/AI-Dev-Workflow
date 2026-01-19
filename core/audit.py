@@ -171,10 +171,13 @@ class AuditLogger:
         phase: Optional[str] = None,
         checkpoint: Optional[str] = None,
         success: bool = True,
-        error: Optional[str] = None
+        error: Optional[str] = None,
+        cost: Optional[float] = None
     ) -> None:
         """Log an agent API call"""
-        cost = self._calculate_cost(model, input_tokens, output_tokens)
+        # Use provided cost or calculate it
+        if cost is None:
+            cost = self._calculate_cost(model, input_tokens, output_tokens)
 
         event = AuditEvent(
             timestamp=datetime.now().isoformat(),
@@ -184,8 +187,8 @@ class AuditLogger:
             agent=agent_id,
             phase=phase,
             checkpoint=checkpoint,
-            input_summary=input_text[:500] if input_text else "",
-            output_summary=output_text[:500] if output_text else "",
+            input_summary=input_text[:2000] if input_text else "",
+            output_summary=output_text[:2000] if output_text else "",
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             model=model,
@@ -217,7 +220,7 @@ class AuditLogger:
             project_id=self.project_id,
             agent=gate_id,
             phase=phase,
-            output_summary=feedback[:500] if feedback else "",
+            output_summary=feedback[:2000] if feedback else "",
             input_tokens=total_tokens,
             output_tokens=0,
             cost_usd=total_cost,
@@ -268,8 +271,8 @@ class AuditLogger:
             project_id=self.project_id,
             agent=agent_id,
             phase=phase,
-            input_summary=decision[:500],
-            output_summary=rationale[:500],
+            input_summary=decision[:2000],
+            output_summary=rationale[:2000],
             status="success"
         )
         self.log_event(event)
@@ -287,8 +290,8 @@ class AuditLogger:
             session_id=self.session_id,
             project_id=self.project_id,
             phase=phase,
-            input_summary=reason[:500],
-            output_summary=context[:500] if context else "",
+            input_summary=reason[:2000],
+            output_summary=context[:2000] if context else "",
             status="pending",
             metadata={"requires_human_review": True}
         )
@@ -363,18 +366,27 @@ class AuditLogger:
 
 
 def get_latest_session(project_dir: Path) -> Optional[str]:
-    """Get the most recent session ID for a project"""
+    """Get the most recent session ID for a project, with fallback to scanning audit directory"""
+    project_dir = Path(project_dir)
     index_file = project_dir / "audit" / "index.json"
-    if not index_file.exists():
-        return None
 
-    try:
-        with open(index_file, "r", encoding="utf-8") as f:
-            index = json.load(f)
-        if index.get("sessions"):
-            return index["sessions"][0]["session_id"]
-    except (json.JSONDecodeError, IOError, KeyError):
-        pass
+    # Try index first
+    if index_file.exists():
+        try:
+            with open(index_file, "r", encoding="utf-8") as f:
+                index = json.load(f)
+            if index.get("sessions"):
+                return index["sessions"][0]["session_id"]
+        except (json.JSONDecodeError, IOError, KeyError):
+            pass
+
+    # Fallback: scan for session files directly
+    audit_dir = project_dir / "audit"
+    if audit_dir.exists():
+        session_files = sorted(audit_dir.glob("session_*.jsonl"), reverse=True)
+        if session_files:
+            # Extract session_id from filename: session_2025-01-15_143022.jsonl
+            return session_files[0].stem.replace("session_", "")
 
     return None
 

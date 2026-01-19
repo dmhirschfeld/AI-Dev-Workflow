@@ -236,8 +236,8 @@ agents:
   - id: code_archaeologist
     role: "Code Archaeologist"
     model: "claude-sonnet-4-5-20250929"
-    temperature: 0.4
-    max_tokens: 8192
+    temperature: 0.1
+    max_tokens: 16384
     system_prompt_file: "agents/prompts/code_archaeologist.md"
     description: "Understand existing codebases and reverse-engineer intent"
     responsibilities:
@@ -275,6 +275,65 @@ agents:
       - Create migration strategies
       - Minimize risk during upgrades
 
+  # ============================================
+  # ASSESSMENT AGENTS (For AI-Powered Codebase Assessment)
+  # ============================================
+  - id: ux_navigation
+    role: "UX Navigation Assessor"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/ux_navigation.md"
+    description: "Assess routing, user flows, and navigation patterns"
+    responsibilities:
+      - Analyze route structure and organization
+      - Evaluate user flow efficiency
+      - Review navigation components
+      - Assess error handling and recovery
+      - Check deep linking and URL design
+
+  - id: ux_styling
+    role: "UX Styling Assessor"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/ux_styling.md"
+    description: "Assess CSS architecture and design system implementation"
+    responsibilities:
+      - Evaluate CSS organization and methodology
+      - Review design system consistency
+      - Analyze responsive design patterns
+      - Assess theming and dark mode support
+      - Identify CSS performance issues
+
+  - id: ux_accessibility
+    role: "Accessibility Assessor"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/ux_accessibility.md"
+    description: "Assess WCAG compliance and assistive technology support"
+    responsibilities:
+      - Review ARIA implementation
+      - Evaluate semantic HTML usage
+      - Test keyboard navigation
+      - Assess screen reader compatibility
+      - Check visual accessibility
+
+  - id: performance
+    role: "Performance Assessor"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/performance.md"
+    description: "Assess application performance and optimization"
+    responsibilities:
+      - Analyze bundle sizes and composition
+      - Review code splitting strategy
+      - Evaluate lazy loading implementation
+      - Assess caching strategies
+      - Identify runtime performance issues
+
 # ============================================
 # VOTING AGENTS (Specialized Perspectives)
 # ============================================
@@ -285,35 +344,35 @@ voters:
     perspective: "Are all scenarios and edge cases covered?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/completeness.md"
+    system_prompt_file: "agents/prompts/voters/voter_completeness.md"
 
   - id: voter_clarity
     role: "Clarity Voter"
     perspective: "Are requirements unambiguous and clear?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/clarity.md"
+    system_prompt_file: "agents/prompts/voters/voter_clarity.md"
 
   - id: voter_testability
     role: "Testability Voter"
     perspective: "Can acceptance criteria be tested?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/testability.md"
+    system_prompt_file: "agents/prompts/voters/voter_testability.md"
 
   - id: voter_feasibility
     role: "Technical Feasibility Voter"
     perspective: "Is this buildable as specified?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/feasibility.md"
+    system_prompt_file: "agents/prompts/voters/voter_feasibility.md"
 
   - id: voter_user_value
     role: "User Value Voter"
     perspective: "Does this deliver meaningful user value?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/user_value.md"
+    system_prompt_file: "agents/prompts/voters/voter_user_value.md"
 
   # Architecture Gate Voters
   - id: voter_scalability
@@ -321,35 +380,35 @@ voters:
     perspective: "Will this architecture scale?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/scalability.md"
+    system_prompt_file: "agents/prompts/voters/voter_scalability.md"
 
   - id: voter_security
     role: "Security Voter"
     perspective: "Are there security concerns?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/security.md"
+    system_prompt_file: "agents/prompts/voters/voter_security.md"
 
   - id: voter_maintainability
     role: "Maintainability Voter"
     perspective: "Can this be maintained long-term?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/maintainability.md"
+    system_prompt_file: "agents/prompts/voters/voter_maintainability.md"
 
   - id: voter_performance
     role: "Performance Voter"
     perspective: "Are there performance risks?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/performance.md"
+    system_prompt_file: "agents/prompts/voters/voter_performance.md"
 
   - id: voter_integration
     role: "Integration Voter"
     perspective: "Does this integrate cleanly with existing systems?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/integration.md"
+    system_prompt_file: "agents/prompts/voters/voter_integration.md"
 
   # Code Review Voters
   - id: voter_standards
@@ -357,14 +416,14 @@ voters:
     perspective: "Does code follow coding standards?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/standards.md"
+    system_prompt_file: "agents/prompts/voters/voter_standards.md"
 
   - id: voter_logic
     role: "Logic Voter"
     perspective: "Is the logic correct and efficient?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/logic.md"
+    system_prompt_file: "agents/prompts/voters/voter_logic.md"
 
   # Release Readiness Voters
   - id: voter_code_quality
@@ -372,25 +431,25 @@ voters:
     perspective: "Is code production-ready?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/code_quality.md"
+    system_prompt_file: "agents/prompts/voters/voter_code_quality.md"
 
   - id: voter_test_coverage
     role: "Test Coverage Voter"
     perspective: "Is testing sufficient?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/test_coverage.md"
+    system_prompt_file: "agents/prompts/voters/voter_test_coverage.md"
 
   - id: voter_documentation
     role: "Documentation Voter"
     perspective: "Is documentation complete?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/documentation.md"
+    system_prompt_file: "agents/prompts/voters/voter_documentation.md"
 
   - id: voter_operations
     role: "Operations Voter"
     perspective: "Is this deployable and monitorable?"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
-    system_prompt_file: "agents/prompts/voters/operations.md"
+    system_prompt_file: "agents/prompts/voters/voter_operations.md"

@@ -14,10 +14,37 @@ import os
 import sys
 import re
 import json
+import subprocess
+import threading
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
 import yaml
+
+# Fix Windows console encoding for Unicode characters
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    # Look for .env in the script directory
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"✓ Loaded environment from {env_path}")
+except ImportError:
+    # dotenv not installed, try to load manually
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+        print(f"✓ Loaded environment from {env_path}")
 
 # Import core modules
 try:
@@ -80,7 +107,25 @@ class InteractiveCLI:
         self.ingestor = CodebaseIngestor(str(self.projects_dir))
         self.evaluator = HealthEvaluator(str(self.projects_dir))
         self.planner = ImprovementPlanner(str(self.projects_dir))
-    
+
+        # Start web dashboard server in background
+        self._start_dashboard_server()
+
+    def _start_dashboard_server(self):
+        """Start the web dashboard server in a background thread"""
+        try:
+            from core.monitor import StandaloneServer
+
+            def run_server():
+                server = StandaloneServer(self.projects_dir, port=8765)
+                server.start(open_browser=False)
+
+            self.dashboard_thread = threading.Thread(target=run_server, daemon=True)
+            self.dashboard_thread.start()
+            print("📊 Dashboard: http://localhost:8765/admin")
+        except Exception as e:
+            print(f"⚠️  Dashboard server failed to start: {e}")
+
     def clear_screen(self):
         """Clear terminal"""
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -137,7 +182,7 @@ class InteractiveCLI:
         except (KeyboardInterrupt, EOFError):
             print("\n")
             return "q"
-    
+
     def get_multiline(self, prompt: str) -> str:
         """Get multiline input"""
         print(f"{prompt} (blank line to finish):")
@@ -151,7 +196,7 @@ class InteractiveCLI:
             except (KeyboardInterrupt, EOFError):
                 break
         return "\n".join(lines)
-    
+
     # ════════════════════════════════════════════════════════════
     # AUTONOMY SELECTION (First Menu)
     # ════════════════════════════════════════════════════════════
@@ -197,8 +242,7 @@ class InteractiveCLI:
                 sys.exit(0)
             else:
                 print("Please enter 1, 2, or 3")
-        
-        input("Press Enter to continue...")
+
         self.main_menu()
     
     # ════════════════════════════════════════════════════════════
@@ -237,12 +281,13 @@ class InteractiveCLI:
                 ("4", "Quick task          (one-off agent task)"),
                 ("5", "Context graph       (precedents & decisions)"),
                 ("6", "Usage report        (costs across projects)"),
+                ("7", "Web dashboard       (monitor & admin)"),
                 ("c", "Change autonomy     (switch working style)"),
                 ("q", "Quit"),
             ])
-            
+
             choice = self.get_input().lower()
-            
+
             if choice == "1":
                 self.new_project_flow()
             elif choice == "2":
@@ -255,6 +300,8 @@ class InteractiveCLI:
                 self.context_graph_flow()
             elif choice == "6":
                 self.global_usage_flow()
+            elif choice == "7":
+                self.web_dashboard_flow()
             elif choice == "c":
                 self.autonomy_menu()
                 return  # autonomy_menu will call main_menu again
@@ -810,6 +857,56 @@ class InteractiveCLI:
             traceback.print_exc()
             self.get_input("Press Enter to continue...")
 
+    def _select_assessment_mode(self) -> tuple[str, list | None]:
+        """Let user choose assessment mode for the ingest workflow."""
+        print("\n" + "=" * 60)
+        print("ASSESSMENT MODE")
+        print("=" * 60)
+        print("\nSelect how the assessment should run:")
+        print()
+        print("  [1] Standard (Recommended)")
+        print("      Fast assessment using current knowledge.")
+        print("      Uses learned patterns and rules, no per-step voting.")
+        print()
+        print("  [2] Self-Improvement (Training Mode)")
+        print("      Voters review EACH step (30 voter calls instead of 5).")
+        print("      Failed steps capture feedback to improve future assessments.")
+        print("      More expensive, but makes the system smarter.")
+        print()
+        print("  [3] Rules Only (Quick Scan)")
+        print("      Only runs deterministic rules, skips AI entirely.")
+        print("      Fastest and cheapest, but least comprehensive.")
+        print()
+        print("  [4] Quick Test (Architecture + Tech Debt only)")
+        print("      Runs only 2 assessment steps for faster testing.")
+        print("      Useful for verifying agent mappings work correctly.")
+        print()
+
+        while True:
+            choice = input("Select mode (1-4) [1]: ").strip() or "1"
+
+            mode_map = {
+                "1": ("standard", None),
+                "2": ("self_improvement", None),
+                "3": ("rules_only", None),
+                "4": ("standard", ["architecture", "tech_debt"])
+            }
+
+            if choice in mode_map:
+                mode, test_steps = mode_map[choice]
+                mode_names = {
+                    "standard": "Standard",
+                    "self_improvement": "Self-Improvement (Training)",
+                    "rules_only": "Rules Only"
+                }
+                if test_steps:
+                    print(f"\n✓ Quick Test mode selected (steps: {', '.join(test_steps)})\n")
+                else:
+                    print(f"\n✓ {mode_names[mode]} mode selected\n")
+                return mode, test_steps
+
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
     def _setup_verbose_callbacks(self, orchestrator):
         """Set up verbose logging callbacks on the orchestrator"""
         cli = self  # Capture self for closures
@@ -830,11 +927,13 @@ class InteractiveCLI:
 
             # Show each voter's decision
             for vote in result.votes:
-                status = "success" if vote.approved else "warning"
-                cli.log_verbose(f"{vote.voter_id}: {'APPROVE' if vote.approved else 'REJECT'}", status, indent=1)
+                is_pass = vote.vote == "pass"
+                status = "success" if is_pass else "warning"
+                cli.log_verbose(f"{vote.voter_id}: {'PASS' if is_pass else 'FAIL'} ({vote.confidence}% confidence)", status, indent=1)
                 cli.log_verbose(f"Reasoning: {vote.reasoning[:150]}...", "thinking", indent=2)
                 if vote.concerns:
-                    cli.log_verbose(f"Concerns: {vote.concerns[:100]}...", "warning", indent=2)
+                    concerns_str = ", ".join(vote.concerns) if isinstance(vote.concerns, list) else str(vote.concerns)
+                    cli.log_verbose(f"Concerns: {concerns_str[:100]}...", "warning", indent=2)
 
             if result.aggregated_feedback:
                 cli.log_verbose(f"Summary: {result.aggregated_feedback[:200]}...", "info")
@@ -859,11 +958,33 @@ class InteractiveCLI:
             bar = "█" * filled + "░" * (bar_width - filled)
             cli.log_verbose(f"[{bar}] {current}/{total} Analyzing: {step_name}", "substep")
 
+            # Show special message when Final Assessment Review starts
+            if "Final Assessment Review" in step_name:
+                print("\nNow confirming assessment with AI voters...")
+                print("Each voter will review the complete assessment:\n")
+
+        def verbose_voter_progress(voter_id: str, vote, total: int, completed: int):
+            """Show progress as each voter completes their review"""
+            # Format voter name nicely
+            voter_name = voter_id.replace("voter_", "").replace("_", " ").title()
+            if vote:
+                result = "PASS" if vote.vote == "pass" else "FAIL"
+                confidence = vote.confidence
+                print(f"  ✓ Confirmed {voter_name} review... {result} ({confidence}% confidence) [{completed}/{total}]")
+            else:
+                print(f"  ✓ Confirmed {voter_name} review... (no response) [{completed}/{total}]")
+
+        def verbose_lesson_learned(step_name: str, pattern: str):
+            """Show when a lesson is learned in self-improvement mode"""
+            print(f"  📚 Lesson learned in {step_name}: {pattern[:60]}...")
+
         # Set callbacks
         orchestrator.on_phase_change = verbose_phase_change
         orchestrator.on_gate_result = verbose_gate_result
         orchestrator.on_agent_response = verbose_agent_response
         orchestrator.on_progress = verbose_progress
+        orchestrator.on_voter_progress = verbose_voter_progress
+        orchestrator.on_lesson_learned = verbose_lesson_learned
 
     def _run_comprehensive_workflow(self, project_name: str, source_path: str):
         """Run the full 3-phase assessment and improvement workflow using Orchestrator"""
@@ -896,16 +1017,50 @@ class InteractiveCLI:
         if self.verbose:
             self._setup_verbose_callbacks(orchestrator)
 
+        # Select assessment mode
+        assessment_mode, test_steps = self._select_assessment_mode()
+
         # Start the ingest workflow
-        state = orchestrator.start_ingest(source_path, f"Analyzing {source_path}")
+        state = orchestrator.start_ingest(
+            source_path,
+            f"Analyzing {source_path}",
+            assessment_mode=assessment_mode
+        )
+
+        # Set test_steps if specified (for Quick Test mode)
+        if test_steps:
+            state.test_steps = test_steps
+
         self.log_verbose(f"Starting ingest workflow for {source_path}", "step")
         self.log_verbose(f"Session ID: {orchestrator.audit_logger.session_id if orchestrator.audit_logger else 'N/A'}", "info")
+        self.log_verbose(f"Assessment mode: {assessment_mode}", "info")
+        if test_steps:
+            self.log_verbose(f"Test steps: {', '.join(test_steps)}", "info")
+
+        # Show self-improvement mode notice
+        if assessment_mode == "self_improvement":
+            print("\n🎓 SELF-IMPROVEMENT MODE ACTIVE")
+            print("   Voters will review each assessment step.")
+            print("   Feedback from rejections will be captured as lessons.")
+            print("   This makes future assessments more accurate.\n")
 
         # Auto-start web monitor in background
         if orchestrator.audit_logger:
+            session_id = orchestrator.audit_logger.session_id
+            audit_dir = project_dir / "audit"
+            session_file = audit_dir / f"session_{session_id}.jsonl"
+
+            # Debug: show monitor setup info
+            print(f"\n📊 Setting up web monitor:")
+            print(f"   Project dir: {project_dir}")
+            print(f"   Session ID: {session_id}")
+            print(f"   Audit dir exists: {audit_dir.exists()}")
+            print(f"   Session file: {session_file}")
+            print(f"   Session file exists: {session_file.exists()}")
+
             monitor = WebMonitor(
                 project_dir,
-                session_id=orchestrator.audit_logger.session_id,
+                session_id=session_id,
                 port=8765
             )
             monitor_thread = threading.Thread(
@@ -915,7 +1070,61 @@ class InteractiveCLI:
             monitor_thread.start()
             time.sleep(0.5)
             webbrowser.open("http://localhost:8765")
-            print("📊 Live monitor opened at http://localhost:8765\n")
+            print(f"   Web URL: http://localhost:8765")
+
+            # Auto-launch console monitor in separate terminal window
+            cli_path = Path(__file__).resolve()
+            console_cmd = f'python "{cli_path}" monitor {project_name} --follow'
+            if os.name == 'nt':  # Windows
+                subprocess.Popen(
+                    f'start "AI-Dev Monitor" cmd /k {console_cmd}',
+                    shell=True
+                )
+            else:  # Linux/Mac
+                try:
+                    subprocess.Popen(
+                        ['gnome-terminal', '--', 'bash', '-c', console_cmd],
+                        start_new_session=True
+                    )
+                except FileNotFoundError:
+                    # Try xterm as fallback
+                    try:
+                        subprocess.Popen(
+                            ['xterm', '-e', console_cmd],
+                            start_new_session=True
+                        )
+                    except FileNotFoundError:
+                        print("📺 Console monitor: Unable to open terminal")
+            print("📺 Console monitor launched in separate terminal\n")
+
+        # Start quit listener thread
+        def quit_listener():
+            """Background thread to listen for 'q' key to request quit."""
+            while not orchestrator.quit_requested:
+                try:
+                    if os.name == 'nt':
+                        import msvcrt
+                        if msvcrt.kbhit():
+                            key = msvcrt.getch().decode('utf-8', errors='ignore').lower()
+                            if key == 'q':
+                                print("\n⏹️  Quit requested. Finishing current step...")
+                                orchestrator.request_quit()
+                                break
+                    else:
+                        import select
+                        if select.select([sys.stdin], [], [], 0.1)[0]:
+                            key = sys.stdin.read(1).lower()
+                            if key == 'q':
+                                print("\n⏹️  Quit requested. Finishing current step...")
+                                orchestrator.request_quit()
+                                break
+                    time.sleep(0.1)
+                except Exception:
+                    break
+
+        quit_thread = threading.Thread(target=quit_listener, daemon=True)
+        quit_thread.start()
+        print("💡 Press [Q] at any time to quit gracefully\n")
 
         # Run the workflow phase by phase
         reports_dir = project_dir / "reports"
@@ -960,6 +1169,13 @@ class InteractiveCLI:
             # Run the phase
             success, output = asyncio.run(orchestrator.run_phase())
 
+            # Check for quit request
+            if output == "QUIT_REQUESTED":
+                print("\n⏹️  Workflow stopped by user request.")
+                print("   Progress has been logged to the audit trail.")
+                orchestrator.finalize_audit()
+                return
+
             if not success:
                 print(f"\n⚠️  Phase issue: {output[:200]}")
                 if state.current_phase == WorkflowPhase.ESCALATED:
@@ -984,7 +1200,7 @@ class InteractiveCLI:
                 if self.autonomy_level in ["pair", "balanced"]:
                     print()
                     print(self.SUBHEADER)
-                    print("  [V] View report  [A] Continue  [S] Save & exit")
+                    print("  [V] View report  [A] Continue  [S] Save & exit  [D] Discard  [Q] Quit")
                     print(self.SUBHEADER)
                     while True:
                         choice = self.get_input("Choice: ").lower()
@@ -994,6 +1210,19 @@ class InteractiveCLI:
                             break
                         elif choice == "s":
                             print("\n✅ Assessment saved.")
+                            orchestrator.finalize_audit()
+                            return
+                        elif choice == "q":
+                            print("\n👋 Quitting workflow.")
+                            orchestrator.finalize_audit()
+                            return
+                        elif choice == "d":
+                            # Discard - remove generated files
+                            if assessment_file.exists():
+                                assessment_file.unlink()
+                            if assessment_report_path.exists():
+                                assessment_report_path.unlink()
+                            print("\n🗑️  Assessment discarded.")
                             orchestrator.finalize_audit()
                             return
 
@@ -1014,7 +1243,7 @@ class InteractiveCLI:
                 if self.autonomy_level in ["pair", "balanced"]:
                     print()
                     print(self.SUBHEADER)
-                    print("  [V] View report  [A] Continue  [S] Save & exit")
+                    print("  [V] View report  [A] Continue  [S] Save & exit  [D] Discard  [Q] Quit")
                     print(self.SUBHEADER)
                     while True:
                         choice = self.get_input("Choice: ").lower()
@@ -1026,13 +1255,27 @@ class InteractiveCLI:
                             print("\n✅ Plan saved.")
                             orchestrator.finalize_audit()
                             return
+                        elif choice == "q":
+                            print("\n👋 Quitting workflow.")
+                            orchestrator.finalize_audit()
+                            return
+                        elif choice == "d":
+                            # Discard - remove generated files
+                            if plan_file.exists():
+                                plan_file.unlink()
+                            if planning_report_path.exists():
+                                planning_report_path.unlink()
+                            print("\n🗑️  Plan discarded.")
+                            orchestrator.finalize_audit()
+                            return
 
             # Show gate results
             elif "_review" in phase.value.lower():
                 if state.gate_results:
                     last_result = state.gate_results[-1]
                     self._show_gate_result(last_result)
-                    self.get_input("\nPress Enter to continue...")
+                    if self.autonomy_level == "pair":
+                        self.get_input("\nPress Enter to continue...")
 
         # Execution phase
         if state.current_phase == WorkflowPhase.INGEST_EXECUTION:
@@ -1098,12 +1341,25 @@ class InteractiveCLI:
         print(self.SUBHEADER)
         print()
         print(f"Gate: {result.gate_id}")
-        print(f"Votes: {sum(1 for v in result.votes if v.approved)} approve / {sum(1 for v in result.votes if not v.approved)} reject")
+        pass_count = sum(1 for v in result.votes if v.vote == 'pass')
+        fail_count = len(result.votes) - pass_count
+        pass_votes = [v for v in result.votes if v.vote == "pass"]
+        fail_votes = [v for v in result.votes if v.vote == "fail"]
+        pass_conf = sum(v.confidence for v in pass_votes) // len(pass_votes) if pass_votes else 0
+        fail_conf = sum(v.confidence for v in fail_votes) // len(fail_votes) if fail_votes else 0
+
+        # Show confidence per outcome with voter roles
+        pass_roles = ", ".join(v.voter_role for v in pass_votes)
+        fail_roles = ", ".join(v.voter_role for v in fail_votes)
+
+        pass_str = f"{pass_count} pass" + (f" ({pass_conf}%): {pass_roles}" if pass_votes else "")
+        fail_str = f"{fail_count} fail" + (f" ({fail_conf}%): {fail_roles}" if fail_votes else "")
+        print(f"Votes: {pass_str} / {fail_str}")
         print()
         print("Voter Feedback:")
         for vote in result.votes:
-            status = "✅" if vote.approved else "❌"
-            print(f"  {status} {vote.voter_id}: {vote.reasoning[:100]}...")
+            status = "✅" if vote.vote == "pass" else "❌"
+            print(f"  {status} {vote.voter_id} ({vote.confidence}%): {vote.reasoning[:100]}...")
         if result.aggregated_feedback:
             print()
             print(f"Summary: {result.aggregated_feedback[:300]}...")
@@ -1823,11 +2079,39 @@ class InteractiveCLI:
                 print(f"Estimated features built: ~{features_estimated}")
         
         self.get_input("\nPress Enter to continue...")
-    
+
+    # ════════════════════════════════════════════════════════════
+    # WEB DASHBOARD
+    # ════════════════════════════════════════════════════════════
+
+    def web_dashboard_flow(self):
+        """Start standalone web dashboard (monitor + admin)"""
+        self.clear_screen()
+        self.print_header("WEB DASHBOARD")
+
+        print("Starting web dashboard server...")
+        print()
+        print("  Monitor: http://localhost:8765/")
+        print("  Admin:   http://localhost:8765/admin")
+        print()
+        print("Press Ctrl+C to stop the server.")
+        print()
+
+        try:
+            from core.monitor import StandaloneServer
+            server = StandaloneServer(self.projects_dir, port=8765)
+            server.start(open_browser=True)
+        except KeyboardInterrupt:
+            print("\nServer stopped.")
+        except Exception as e:
+            print(f"\n❌ Error: {e}")
+
+        self.get_input("\nPress Enter to continue...")
+
     # ════════════════════════════════════════════════════════════
     # PROJECT MENU
     # ════════════════════════════════════════════════════════════
-    
+
     def project_menu(self):
         """Project-level menu"""
         while True:
@@ -2484,11 +2768,15 @@ def run_monitor(cli, args):
         print(f"Project not found: {project_id}")
         return
 
+    # Get latest session for this project
+    from core.audit import get_latest_session
+    session_id = get_latest_session(project_dir)
+
     if web_mode:
-        monitor = WebMonitor(project_dir, port=port)
+        monitor = WebMonitor(project_dir, port=port, session_id=session_id)
         monitor.start()
     else:
-        monitor = ConsoleMonitor(project_dir)
+        monitor = ConsoleMonitor(project_dir, session_id=session_id)
         monitor.follow()
 
 

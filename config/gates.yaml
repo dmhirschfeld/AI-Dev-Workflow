@@ -69,6 +69,24 @@ gates:
     on_pass: "proceed_to_planning"
     on_fail: "return_to_assessment"
     feedback_required: true
+    review_guidance: |
+      IMPORTANT: You are evaluating WHETHER THE ASSESSMENT WAS DONE PROPERLY,
+      NOT whether the codebase being assessed is good or bad.
+
+      Ask yourself:
+      - Is the assessment thorough and complete? (Did it cover all areas?)
+      - Are the findings clearly documented with specific examples?
+      - Are the scores justified with evidence?
+      - Is the methodology sound?
+      - Are the recommendations actionable?
+
+      DO NOT reject because:
+      - The codebase has low scores (that's what the assessment found)
+      - The codebase has security issues (that's what the assessment reported)
+      - The codebase has tech debt (that's what the assessment identified)
+
+      APPROVE if the assessment work itself is thorough, clear, and well-documented.
+      REJECT only if the assessment is incomplete, unclear, or methodologically flawed.
 
   - id: planning_approval
     name: "Improvement Planning Approval"
@@ -85,10 +103,41 @@ gates:
     on_pass: "proceed_to_execution"
     on_fail: "return_to_planning"
     feedback_required: true
+    review_guidance: |
+      IMPORTANT: You are evaluating WHETHER THE IMPROVEMENT PLAN IS WELL-CONSTRUCTED,
+      NOT whether the current codebase is good or bad.
+
+      Ask yourself:
+      - Does the plan address the findings from the assessment?
+      - Are tasks properly prioritized and sequenced?
+      - Are effort estimates reasonable?
+      - Is the plan actionable with clear steps?
+      - Does the plan consider dependencies between tasks?
+
+      DO NOT reject because:
+      - Some improvements will be difficult (that's expected)
+      - The codebase needs a lot of work (that's why we're planning)
+
+      APPROVE if the plan is logical, actionable, and properly structured.
+      REJECT only if the plan is incomplete, poorly organized, or unrealistic.
 
   # ============================================
   # MINOR GATES (3 Voters, 2+ to pass)
   # ============================================
+
+  - id: step_validation
+    name: "Step Validation"
+    type: minor
+    trigger: "After each workflow step completes"
+    threshold: 2
+    max_retries: 3
+    voters:
+      - voter_completeness
+      - voter_clarity
+      - voter_feasibility
+    on_pass: "continue_to_next_step"
+    on_fail: "retry_step"
+    feedback_required: true
 
   - id: code_review
     name: "Code Review"
@@ -191,8 +240,8 @@ failure_handling:
 # ============================================
 vote_format:
   required_fields:
-    - vote: "approve | reject"
-    - confidence: "high | medium | low"
+    - vote: "pass | fail"
+    - confidence: "1-100 (how confident in the pass/fail decision)"
     - reasoning: "Brief explanation"
-    - concerns: "List of specific concerns (if reject)"
-    - suggestions: "Improvement suggestions (if reject)"
+    - concerns: "List of specific concerns (if fail)"
+    - suggestions: "Improvement suggestions (if fail)"
