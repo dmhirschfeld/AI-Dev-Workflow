@@ -878,8 +878,8 @@ class InteractiveCLI:
         print("      Fastest and cheapest, but least comprehensive.")
         print()
         print("  [4] Quick Test (Architecture + Tech Debt only)")
-        print("      Runs only 2 assessment steps for faster testing.")
-        print("      Useful for verifying agent mappings work correctly.")
+        print("      Runs only 2 assessment steps WITH voting (same as full test).")
+        print("      Useful for testing the full self-improvement pipeline faster.")
         print()
 
         while True:
@@ -889,7 +889,7 @@ class InteractiveCLI:
                 "1": ("standard", None),
                 "2": ("self_improvement", None),
                 "3": ("rules_only", None),
-                "4": ("standard", ["architecture", "tech_debt"])
+                "4": ("self_improvement", ["architecture", "tech_debt"])
             }
 
             if choice in mode_map:
@@ -2688,6 +2688,63 @@ class InteractiveCLI:
 # DIRECT CLI COMMANDS
 # ════════════════════════════════════════════════════════════
 
+def list_agents():
+    """List all agents from definitions.yaml"""
+    definitions_path = Path(__file__).parent / "agents" / "definitions.yaml"
+
+    if not definitions_path.exists():
+        print(f"Error: {definitions_path} not found")
+        return
+
+    with open(definitions_path) as f:
+        data = yaml.safe_load(f)
+
+    agents = data.get("agents", [])
+    voters = data.get("voters", [])
+
+    print("\n" + "═" * 60)
+    print("  DEVELOPMENT AGENTS")
+    print("═" * 60)
+    print(f"\n{'ID':<25} {'MODEL':<12} {'ROLE'}")
+    print("─" * 60)
+    for agent in agents:
+        agent_id = agent.get("id", "unknown")
+        model = agent.get("model", "unknown")
+        # Shorten model name for display
+        if "opus" in model.lower():
+            model_short = "Opus"
+        elif "sonnet" in model.lower():
+            model_short = "Sonnet"
+        elif "haiku" in model.lower():
+            model_short = "Haiku"
+        else:
+            model_short = model[:10]
+        role = agent.get("role", agent.get("description", ""))
+        print(f"{agent_id:<25} {model_short:<12} {role}")
+
+    print(f"\n{'═' * 60}")
+    print("  VOTING AGENTS")
+    print("═" * 60)
+    print(f"\n{'ID':<25} {'MODEL':<12} {'ROLE'}")
+    print("─" * 60)
+    for voter in voters:
+        voter_id = voter.get("id", "unknown")
+        model = voter.get("model", "unknown")
+        if "opus" in model.lower():
+            model_short = "Opus"
+        elif "sonnet" in model.lower():
+            model_short = "Sonnet"
+        elif "haiku" in model.lower():
+            model_short = "Haiku"
+        else:
+            model_short = model[:10]
+        role = voter.get("role", voter.get("description", ""))
+        print(f"{voter_id:<25} {model_short:<12} {role}")
+
+    print(f"\nTotal: {len(agents)} development agents, {len(voters)} voters")
+    print(f"Source: {definitions_path}\n")
+
+
 def print_usage():
     """Print usage information"""
     print("""
@@ -2697,6 +2754,7 @@ Usage:
   python cli.py                     Interactive mode (main menu)
   python cli.py new "Name"          Create new project
   python cli.py list                List all projects
+  python cli.py list-agents         List all agents and voters
   python cli.py open <project>      Open project menu
   python cli.py ingest <path>       Import external codebase
   python cli.py evaluate <project>  Run health evaluation
@@ -2816,7 +2874,11 @@ def main():
             else:
                 print("No projects found.")
             return
-        
+
+        elif command == "list-agents":
+            list_agents()
+            return
+
         elif command == "open" and len(sys.argv) > 2:
             project_id = sys.argv[2]
             cli.current_project = project_id
