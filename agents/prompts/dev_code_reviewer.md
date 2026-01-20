@@ -57,7 +57,7 @@ You provide thorough, constructive code reviews that catch bugs, security issues
 
 **Location**: `file.ts:line`
 
-**Issue**: 
+**Issue**:
 [Detailed explanation of the problem]
 
 **Suggestion**:
@@ -148,7 +148,7 @@ You provide thorough, constructive code reviews that catch bugs, security issues
 #### Issue 1: [Title]
 **File**: `path/to/file.ts:45`
 **Problem**: [Description]
-**Fix**: 
+**Fix**:
 ```typescript
 // Suggested code
 ```

@@ -1,5 +1,6 @@
 # AI-Dev-Workflow - Agent Definitions
-# All agents are defined here and instantiated via the AgentFactory
+# Technical configuration for agents. See agents/prompts/*.md for agent behavior.
+# The .md files are the single source of truth for what each agent does.
 
 agents:
   # ============================================
@@ -11,14 +12,6 @@ agents:
     temperature: 0.3
     max_tokens: 4096
     system_prompt_file: "agents/prompts/orchestrator.md"
-    description: "Central coordinator for the entire workflow"
-    responsibilities:
-      - Route tasks to appropriate specialist agents
-      - Manage dependencies and sequencing
-      - Track workflow state and progress
-      - Trigger voting committees at quality gates
-      - Handle retry logic when tasks fail
-      - Escalate persistent failures for human review
 
   # ============================================
   # IDEATION & PLANNING AGENTS
@@ -28,42 +21,21 @@ agents:
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.8  # Higher for creativity
     max_tokens: 4096
-    system_prompt_file: "agents/prompts/ideation.md"
-    description: "Transform vague concepts into actionable feature sets"
-    responsibilities:
-      - Interpret high-level prompts
-      - Generate feature ideas through structured brainstorming
-      - Identify market differentiators and MVP scope
-      - Process enhancement requests
-      - Research comparable products/solutions
+    system_prompt_file: "agents/prompts/dev_ideation.md"
 
   - id: product_owner
     role: "Product Owner"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.4
     max_tokens: 4096
-    system_prompt_file: "agents/prompts/product_owner.md"
-    description: "Scope management and prioritization"
-    responsibilities:
-      - Prioritize features based on value/effort
-      - Make scope tradeoff decisions
-      - Define MVP boundaries
-      - Say no or later to scope creep
-      - Maintain product backlog
+    system_prompt_file: "agents/prompts/dev_product_owner.md"
 
   - id: business_analyst
     role: "Business Analyst"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 8192
-    system_prompt_file: "agents/prompts/business_analyst.md"
-    description: "Requirements documentation and user story creation"
-    responsibilities:
-      - Write detailed requirements from prioritized features
-      - Create user stories with acceptance criteria
-      - Document business rules and workflows
-      - Clarify edge cases and error scenarios
-      - Maintain requirements traceability
+    system_prompt_file: "agents/prompts/dev_business_analyst.md"
 
   # ============================================
   # DESIGN AGENTS
@@ -73,70 +45,35 @@ agents:
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.6
     max_tokens: 4096
-    system_prompt_file: "agents/prompts/ui_ux_designer.md"
-    description: "Interface design and user experience"
-    responsibilities:
-      - Design user interfaces and screen layouts
-      - Create user flow diagrams
-      - Define interaction patterns
-      - Ensure accessibility compliance
-      - Maintain design system consistency
+    system_prompt_file: "agents/prompts/dev_ui_ux_designer.md"
 
   - id: solutions_architect
     role: "Solutions Architect"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 16384
-    system_prompt_file: "agents/prompts/solutions_architect.md"
-    description: "System architecture and design patterns"
-    responsibilities:
-      - Define system architecture and component structure
-      - Select appropriate design patterns
-      - Make technology stack decisions
-      - Design API contracts and data flows
-      - Ensure scalability and maintainability
+    system_prompt_file: "agents/prompts/dev_solutions_architect.md"
 
   - id: data_architect
     role: "Data Architect"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 4096
-    system_prompt_file: "agents/prompts/data_architect.md"
-    description: "Database design and data management"
-    responsibilities:
-      - Design database schemas
-      - Plan data migrations
-      - Optimize query performance
-      - Define data models and relationships
-      - Establish data integrity rules
+    system_prompt_file: "agents/prompts/dev_data_architect.md"
 
   - id: security_specialist
     role: "Security Specialist"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
     max_tokens: 16384
-    system_prompt_file: "agents/prompts/security_specialist.md"
-    description: "Security analysis and threat mitigation"
-    responsibilities:
-      - Perform threat modeling
-      - Define authentication/authorization requirements
-      - Review code for security vulnerabilities
-      - Scan dependencies for known vulnerabilities
-      - Establish security standards and policies
+    system_prompt_file: "agents/prompts/dev_security_specialist.md"
 
   - id: api_designer
     role: "Integration/API Designer"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 4096
-    system_prompt_file: "agents/prompts/api_designer.md"
-    description: "External integrations and API design"
-    responsibilities:
-      - Design API contracts (REST, GraphQL)
-      - Plan third-party integrations
-      - Define webhook patterns
-      - Document API endpoints
-      - Manage API versioning strategy
+    system_prompt_file: "agents/prompts/dev_api_designer.md"
 
   # ============================================
   # DEVELOPMENT AGENTS
@@ -146,42 +83,21 @@ agents:
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 8192
-    system_prompt_file: "agents/prompts/developer.md"
-    description: "Code implementation"
-    responsibilities:
-      - Write production code from specifications
-      - Implement features according to user stories
-      - Follow architectural patterns and coding standards
-      - Write inline documentation
-      - Handle error cases per specifications
+    system_prompt_file: "agents/prompts/dev_developer.md"
 
   - id: code_reviewer
     role: "Code Reviewer"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.2
     max_tokens: 16384
-    system_prompt_file: "agents/prompts/code_reviewer.md"
-    description: "Code quality and standards enforcement"
-    responsibilities:
-      - Review code for adherence to coding standards
-      - Check documentation completeness
-      - Identify potential bugs and logic errors
-      - Verify error handling
-      - Flag security vulnerabilities
+    system_prompt_file: "agents/prompts/dev_code_reviewer.md"
 
   - id: code_simplifier
     role: "Code Simplifier"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.4
     max_tokens: 8192
-    system_prompt_file: "agents/prompts/code_simplifier.md"
-    description: "Refactoring and optimization"
-    responsibilities:
-      - Refactor code for simplicity and readability
-      - Identify and extract reusable components
-      - Optimize performance bottlenecks
-      - Remove code duplication (DRY)
-      - Simplify complex logic
+    system_prompt_file: "agents/prompts/dev_code_simplifier.md"
 
   # ============================================
   # QUALITY & DOCUMENTATION AGENTS
@@ -191,44 +107,23 @@ agents:
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 8192
-    system_prompt_file: "agents/prompts/test_writer.md"
-    description: "Test script creation and maintenance"
+    system_prompt_file: "agents/prompts/dev_test_writer.md"
     tools:
       - playwright
-    responsibilities:
-      - Write Playwright test scripts
-      - Define test coverage requirements
-      - Create test data and fixtures
-      - Update tests when requirements change
-      - Design edge case tests
 
   - id: technical_writer
     role: "Technical Writer"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.4
     max_tokens: 16384
-    system_prompt_file: "agents/prompts/technical_writer.md"
-    description: "Documentation creation and maintenance"
-    responsibilities:
-      - Write API documentation
-      - Maintain README files
-      - Create setup/installation guides
-      - Document configuration options
-      - Write troubleshooting guides
+    system_prompt_file: "agents/prompts/dev_technical_writer.md"
 
   - id: devops
     role: "DevOps Engineer"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 4096
-    system_prompt_file: "agents/prompts/devops.md"
-    description: "CI/CD and infrastructure management"
-    responsibilities:
-      - Implement CI/CD pipelines
-      - Manage deployment configurations
-      - Set up monitoring and alerting
-      - Configure environments
-      - Manage infrastructure as code
+    system_prompt_file: "agents/prompts/dev_devops.md"
 
   # ============================================
   # EXISTING CODEBASE ANALYSIS AGENTS
@@ -238,42 +133,21 @@ agents:
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.1
     max_tokens: 16384
-    system_prompt_file: "agents/prompts/code_archaeologist.md"
-    description: "Understand existing codebases and reverse-engineer intent"
-    responsibilities:
-      - Analyze and map existing code architecture
-      - Infer original developer intent and design decisions
-      - Document tribal knowledge hidden in code
-      - Identify patterns and anti-patterns
-      - Create onboarding documentation for legacy code
+    system_prompt_file: "agents/prompts/dev_code_archaeologist.md"
 
   - id: tech_debt_analyst
     role: "Tech Debt Analyst"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 8192
-    system_prompt_file: "agents/prompts/tech_debt_analyst.md"
-    description: "Identify, categorize, and prioritize technical debt"
-    responsibilities:
-      - Systematically identify all forms of tech debt
-      - Categorize by type and severity
-      - Estimate remediation effort
-      - Prioritize based on business impact
-      - Create actionable improvement plans
+    system_prompt_file: "agents/prompts/assessor_tech_debt.md"
 
   - id: modernization_specialist
     role: "Modernization Specialist"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.4
     max_tokens: 8192
-    system_prompt_file: "agents/prompts/modernization_specialist.md"
-    description: "Guide safe, incremental modernization of codebases"
-    responsibilities:
-      - Plan dependency upgrades
-      - Modernize code patterns
-      - Guide architecture evolution
-      - Create migration strategies
-      - Minimize risk during upgrades
+    system_prompt_file: "agents/prompts/dev_modernization_specialist.md"
 
   # ============================================
   # ASSESSMENT AGENTS (For AI-Powered Codebase Assessment)
@@ -283,56 +157,63 @@ agents:
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 8192
-    system_prompt_file: "agents/prompts/ux_navigation.md"
-    description: "Assess routing, user flows, and navigation patterns"
-    responsibilities:
-      - Analyze route structure and organization
-      - Evaluate user flow efficiency
-      - Review navigation components
-      - Assess error handling and recovery
-      - Check deep linking and URL design
+    system_prompt_file: "agents/prompts/assessor_ux_navigation.md"
 
   - id: ux_styling
     role: "UX Styling Assessor"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 8192
-    system_prompt_file: "agents/prompts/ux_styling.md"
-    description: "Assess CSS architecture and design system implementation"
-    responsibilities:
-      - Evaluate CSS organization and methodology
-      - Review design system consistency
-      - Analyze responsive design patterns
-      - Assess theming and dark mode support
-      - Identify CSS performance issues
+    system_prompt_file: "agents/prompts/assessor_ux_styling.md"
 
   - id: ux_accessibility
     role: "Accessibility Assessor"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 8192
-    system_prompt_file: "agents/prompts/ux_accessibility.md"
-    description: "Assess WCAG compliance and assistive technology support"
-    responsibilities:
-      - Review ARIA implementation
-      - Evaluate semantic HTML usage
-      - Test keyboard navigation
-      - Assess screen reader compatibility
-      - Check visual accessibility
+    system_prompt_file: "agents/prompts/assessor_ux_accessibility.md"
 
   - id: performance
     role: "Performance Assessor"
     model: "claude-sonnet-4-5-20250929"
     temperature: 0.3
     max_tokens: 8192
-    system_prompt_file: "agents/prompts/performance.md"
-    description: "Assess application performance and optimization"
-    responsibilities:
-      - Analyze bundle sizes and composition
-      - Review code splitting strategy
-      - Evaluate lazy loading implementation
-      - Assess caching strategies
-      - Identify runtime performance issues
+    system_prompt_file: "agents/prompts/assessor_performance.md"
+
+  - id: architecture_assessor
+    role: "Architecture Assessor"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/assessor_architecture.md"
+
+  - id: code_quality_assessor
+    role: "Code Quality Assessor"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/assessor_code_quality.md"
+
+  - id: security_assessor
+    role: "Security Assessor"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/assessor_security.md"
+
+  - id: testing_assessor
+    role: "Testing Assessor"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/assessor_testing.md"
+
+  - id: documentation_assessor
+    role: "Documentation Assessor"
+    model: "claude-sonnet-4-5-20250929"
+    temperature: 0.3
+    max_tokens: 8192
+    system_prompt_file: "agents/prompts/assessor_documentation.md"
 
 # ============================================
 # VOTING AGENTS (Specialized Perspectives)

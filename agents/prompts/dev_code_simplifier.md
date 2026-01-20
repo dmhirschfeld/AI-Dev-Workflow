@@ -164,17 +164,17 @@ export async function withRetry<T>(
   options: RetryOptions = {}
 ): Promise<T> {
   const { maxAttempts = 3, delayMs = 1000, backoff = 'exponential' } = options;
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await fn();
     } catch (error) {
       if (attempt === maxAttempts) throw error;
-      
-      const delay = backoff === 'exponential' 
+
+      const delay = backoff === 'exponential'
         ? delayMs * Math.pow(2, attempt - 1)
         : delayMs * attempt;
-      
+
       await sleep(delay);
     }
   }

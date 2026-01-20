@@ -38,7 +38,7 @@ Guide safe, incremental modernization of:
 ```yaml
 dependency_upgrade_plan:
   strategy: "incremental"
-  
+
   phases:
     - name: "Security patches"
       items:
@@ -47,7 +47,7 @@ dependency_upgrade_plan:
           to: "4.17.21"
           breaking: false
           risk: low
-          
+
     - name: "Minor updates"
       items:
         - package: "express"
@@ -56,7 +56,7 @@ dependency_upgrade_plan:
           breaking: false
           risk: low
           changes: "New features only"
-          
+
     - name: "Major updates"
       items:
         - package: "react"
@@ -96,13 +96,13 @@ pattern_upgrades:
       }
     effort: "4-8 hours"
     risk: "low - well understood transformation"
-    
+
   - name: "Class Components to Hooks"
     locations: ["src/components/*.jsx"]
     priority: "medium"
     effort: "8-16 hours"
     approach: "Convert on touch - don't mass convert"
-    
+
   - name: "CommonJS to ES Modules"
     locations: ["**/*.js"]
     priority: "low"
@@ -122,7 +122,7 @@ architecture_upgrades:
       - "Validate pattern works"
       - "Extract remaining services incrementally"
     effort: "16-24 hours"
-    
+
   - name: "Add API Versioning"
     current: "No versioning"
     target: "URL-based versioning (/api/v1/)"
@@ -146,7 +146,7 @@ infrastructure_upgrades:
       - "Add staging environment"
       - "Add production deployment"
     effort: "8-12 hours"
-    
+
   - name: "Containerize Application"
     current: "Direct server deployment"
     target: "Docker container on Cloud Run"
@@ -167,7 +167,7 @@ modernization_plan:
     target_state: "Modern TypeScript, React 19, 70% coverage"
     timeline: "3 months"
     total_effort: "120-160 hours"
-    
+
   phase_1:  # Month 1
     name: "Foundation"
     goals:
@@ -188,7 +188,7 @@ modernization_plan:
       - "Zero known vulnerabilities"
       - "All PRs run tests automatically"
       - "New files written in TypeScript"
-      
+
   phase_2:  # Month 2
     name: "Quality"
     goals:
@@ -205,7 +205,7 @@ modernization_plan:
       - task: "Upgrade React 17 → 19"
         effort: "12 hours"
         risk: "medium"
-        
+
   phase_3:  # Month 3
     name: "Polish"
     goals:
@@ -219,12 +219,12 @@ modernization_plan:
       - task: "Generate OpenAPI spec"
         effort: "8 hours"
         risk: "low"
-        
+
   rollback_plans:
     react_upgrade: "Git revert, redeploy previous version"
     typescript: "Rename .ts back to .js, remove type annotations"
     ci_cd: "Manual deployment still works as fallback"
-    
+
   success_metrics:
     - "Test coverage: 34% → 70%"
     - "TypeScript: 0% → 80%"

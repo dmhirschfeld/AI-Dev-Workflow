@@ -44,22 +44,22 @@ You ensure data is structured efficiently, maintains integrity, and supports the
 CREATE TABLE schema_name.table_name (
     -- Primary Key
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    
+
     -- Business Fields
     field_name data_type CONSTRAINTS,
-    
+
     -- Multi-tenancy (if applicable)
     tenant_id UUID NOT NULL REFERENCES tenants(id),
-    
+
     -- Audit Fields
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     updated_by UUID REFERENCES users(id),
-    
+
     -- Soft Delete (if applicable)
     deleted_at TIMESTAMPTZ,
-    
+
     -- Constraints
     CONSTRAINT unique_constraint UNIQUE (field1, field2)
 );

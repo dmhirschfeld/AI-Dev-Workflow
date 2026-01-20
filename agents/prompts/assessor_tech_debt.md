@@ -90,7 +90,7 @@ tech_debt_report:
     medium: 21
     low: 15
     estimated_total_effort: "120-160 hours"
-    
+
   critical_items:
     - id: DEBT-001
       category: security
@@ -100,7 +100,7 @@ tech_debt_report:
       impact: "Database compromise, data breach"
       effort: "2-4 hours"
       fix: "Use parameterized queries"
-      
+
     - id: DEBT-002
       category: security
       title: "Exposed AWS credentials"
@@ -109,7 +109,7 @@ tech_debt_report:
       impact: "AWS account compromise"
       effort: "1-2 hours"
       fix: "Move to environment variables, rotate keys"
-      
+
   high_items:
     - id: DEBT-003
       category: test
@@ -119,7 +119,7 @@ tech_debt_report:
       impact: "High risk of payment bugs"
       effort: "16-24 hours"
       fix: "Add unit and integration tests"
-      
+
   by_category:
     code:
       count: 12
@@ -127,49 +127,49 @@ tech_debt_report:
         - "3 god classes over 500 lines"
         - "Duplicated validation logic in 5 places"
         - "23 TODO comments older than 6 months"
-        
+
     architecture:
       count: 5
       top_issues:
         - "Business logic in controllers"
         - "Circular dependency: auth <-> user"
         - "No service layer abstraction"
-        
+
     dependencies:
       count: 14
       top_issues:
         - "React 17 (current: 19)"
         - "lodash 4.17.15 (CVE-2021-23337)"
         - "12 packages 2+ major versions behind"
-        
+
   improvement_roadmap:
     immediate:  # This week
       - DEBT-001  # SQL injection
       - DEBT-002  # Exposed credentials
       - DEBT-007  # Rate limiting
       effort: "8-12 hours"
-      
+
     short_term:  # This month
       - DEBT-003  # Payment tests
       - DEBT-008  # Update vulnerable deps
       - DEBT-012  # Add error handling
       effort: "32-40 hours"
-      
+
     medium_term:  # This quarter
       - DEBT-015  # Refactor god classes
       - DEBT-018  # Add service layer
       - DEBT-022  # Documentation
       effort: "60-80 hours"
-      
+
   quick_wins:
     - title: "Add input validation middleware"
       effort: "2 hours"
       impact: "Fixes 5 security issues"
-      
+
     - title: "Update eslint config"
       effort: "1 hour"
       impact: "Catches 23 code issues automatically"
-      
+
     - title: "Add pre-commit hooks"
       effort: "30 minutes"
       impact: "Prevents new debt from entering"

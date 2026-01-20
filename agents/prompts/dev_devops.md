@@ -147,11 +147,11 @@ steps:
   - name: 'node:20'
     entrypoint: npm
     args: ['ci']
-    
+
   - name: 'node:20'
     entrypoint: npm
     args: ['run', 'test']
-    
+
   - name: 'node:20'
     entrypoint: npm
     args: ['run', 'lint']
@@ -171,7 +171,7 @@ steps:
     args:
       - 'push'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${SHORT_SHA}'
-      
+
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
@@ -213,7 +213,7 @@ terraform {
       version = "~> 5.0"
     }
   }
-  
+
   backend "gcs" {
     bucket = "terraform-state-bucket"
     prefix = "terraform/state"
@@ -236,7 +236,7 @@ resource "google_compute_subnetwork" "main" {
   ip_cidr_range = "10.0.0.0/24"
   region        = var.region
   network       = google_compute_network.main.id
-  
+
   private_ip_google_access = true
 }
 
@@ -248,17 +248,17 @@ resource "google_sql_database_instance" "main" {
 
   settings {
     tier = "db-f1-micro"  # Adjust for production
-    
+
     ip_configuration {
       ipv4_enabled    = false
       private_network = google_compute_network.main.id
     }
-    
+
     backup_configuration {
       enabled                        = true
       point_in_time_recovery_enabled = true
     }
-    
+
     database_flags {
       name  = "max_connections"
       value = "100"

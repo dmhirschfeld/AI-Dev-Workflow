@@ -233,9 +233,9 @@ describe('PricingService', () => {
   describe('calculateTotal', () => {
     it('should calculate total for single item', () => {
       const items = [{ price: 100, quantity: 1 }];
-      
+
       const result = service.calculateTotal(items);
-      
+
       expect(result).toBe(100);
     });
 
@@ -244,23 +244,23 @@ describe('PricingService', () => {
         { price: 100, quantity: 2 },
         { price: 50, quantity: 3 },
       ];
-      
+
       const result = service.calculateTotal(items);
-      
+
       expect(result).toBe(350);
     });
 
     it('should return 0 for empty items', () => {
       const result = service.calculateTotal([]);
-      
+
       expect(result).toBe(0);
     });
 
     it('should apply discount when provided', () => {
       const items = [{ price: 100, quantity: 1 }];
-      
+
       const result = service.calculateTotal(items, { discountPercent: 10 });
-      
+
       expect(result).toBe(90);
     });
   });
@@ -309,7 +309,7 @@ describe('CreateUserSchema', () => {
       };
 
       const result = CreateUserSchema.safeParse(validData);
-      
+
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.email).toBe('test@example.com');
@@ -326,7 +326,7 @@ describe('CreateUserSchema', () => {
       };
 
       const result = CreateUserSchema.safeParse(invalidData);
-      
+
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('email');
@@ -341,7 +341,7 @@ describe('CreateUserSchema', () => {
       };
 
       const result = CreateUserSchema.safeParse(invalidData);
-      
+
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('password');
@@ -355,7 +355,7 @@ describe('CreateUserSchema', () => {
       };
 
       const result = CreateUserSchema.safeParse(invalidData);
-      
+
       expect(result.success).toBe(false);
     });
 
@@ -367,7 +367,7 @@ describe('CreateUserSchema', () => {
       };
 
       const result = CreateUserSchema.safeParse(invalidData);
-      
+
       expect(result.success).toBe(false);
     });
   });

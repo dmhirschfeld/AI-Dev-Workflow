@@ -50,8 +50,8 @@ class AgentConfig:
     temperature: float
     max_tokens: int
     system_prompt_file: str
-    description: str
-    responsibilities: list[str]
+    description: str = ""  # Optional - .md file is source of truth
+    responsibilities: list[str] | None = None  # Optional - .md file is source of truth
     tools: list[str] | None = None
     perspective: str | None = None  # For voters
 
@@ -92,8 +92,8 @@ class AgentFactory:
                 temperature=agent_data["temperature"],
                 max_tokens=agent_data["max_tokens"],
                 system_prompt_file=agent_data["system_prompt_file"],
-                description=agent_data["description"],
-                responsibilities=agent_data["responsibilities"],
+                description=agent_data.get("description", ""),
+                responsibilities=agent_data.get("responsibilities"),
                 tools=agent_data.get("tools")
             )
             self.agents[agent.id] = agent
@@ -130,7 +130,7 @@ class AgentFactory:
     
     def _generate_default_prompt(self, agent: AgentConfig) -> str:
         """Generate a default system prompt for an agent"""
-        responsibilities = "\n".join(f"- {r}" for r in agent.responsibilities)
+        responsibilities = "\n".join(f"- {r}" for r in (agent.responsibilities or []))
         
         prompt = f"""You are the {agent.role} in a multi-agent software development workflow.
 

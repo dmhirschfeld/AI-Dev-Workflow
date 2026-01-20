@@ -51,7 +51,7 @@ project_analysis:
     purpose: "What the software does"
     domain: "Business domain"
     users: ["User type 1", "User type 2"]
-    
+
   architecture:
     style: "Monolith / Microservices / Serverless"
     layers:
@@ -64,24 +64,24 @@ project_analysis:
       - name: "Data"
         path: "/src/models"
         tech: "Sequelize + PostgreSQL"
-        
+
   entry_points:
     - file: "src/index.js"
       purpose: "Application bootstrap"
     - file: "src/server.js"
       purpose: "HTTP server initialization"
-      
+
   key_modules:
     - name: "Authentication"
       files: ["src/auth/*"]
       pattern: "JWT with refresh tokens"
       notes: "Custom implementation, not using passport"
-      
+
     - name: "Payment Processing"
       files: ["src/payments/*"]
       pattern: "Stripe integration"
       notes: "Webhook handling in separate service"
-      
+
   data_flow:
     - flow: "User Registration"
       steps:
@@ -91,7 +91,7 @@ project_analysis:
         - "Create user record"
         - "Send welcome email (async)"
         - "Return JWT"
-        
+
   patterns_detected:
     positive:
       - "Repository pattern for data access"
@@ -101,13 +101,13 @@ project_analysis:
       - "Business logic in controllers"
       - "Circular dependencies in utils"
       - "Mixed async patterns (callbacks + promises)"
-      
+
   inferred_history:
     - "Started as MVP, grew organically"
     - "Multiple developers with different styles"
     - "Payment module added later (cleaner code)"
     - "Recent security hardening (new middleware)"
-    
+
   tribal_knowledge:
     - "Config in /src/config uses env vars but has hardcoded fallbacks"
     - "The 'legacy' folder is still used by cron jobs"

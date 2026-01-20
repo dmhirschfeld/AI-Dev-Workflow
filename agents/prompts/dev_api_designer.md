@@ -44,10 +44,10 @@ info:
   title: [Service Name] API
   description: |
     [Detailed description of the API]
-    
+
     ## Authentication
     All endpoints require Bearer token authentication.
-    
+
     ## Rate Limiting
     - Standard: 100 requests/minute
     - Burst: 200 requests/minute
@@ -94,7 +94,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalError'
-    
+
     post:
       summary: Create user
       description: Create a new user
