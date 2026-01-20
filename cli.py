@@ -922,8 +922,12 @@ class InteractiveCLI:
             traceback.print_exc()
             self.get_input("Press Enter to continue...")
 
-    def _select_assessment_mode(self) -> tuple[str, list | None]:
-        """Let user choose assessment mode for the ingest workflow."""
+    def _select_assessment_mode(self) -> tuple[str, list | None, bool, bool]:
+        """Let user choose assessment mode for the ingest workflow.
+
+        Returns:
+            tuple: (mode, test_steps, skip_voting, skip_lessons)
+        """
         print("\n" + "=" * 60)
         print("ASSESSMENT MODE")
         print("=" * 60)
@@ -946,30 +950,44 @@ class InteractiveCLI:
         print("      Runs only 2 assessment steps WITH voting (same as full test).")
         print("      Useful for testing the full self-improvement pipeline faster.")
         print()
+        print("  [5] Full Assessment (No Voting)")
+        print("      Runs all 10 AI assessments without any voting.")
+        print("      Good for checking assessment quality without feedback loop.")
+        print()
+        print("  [6] Clean Assessment (No Voting, No Lessons)")
+        print("      Full assessment without voting or learned patterns.")
+        print("      Tests raw AI assessment capability without prior learning.")
+        print()
 
         mode_map = {
-            "1": ("standard", None),
-            "2": ("self_improvement", None),
-            "3": ("rules_only", None),
-            "4": ("self_improvement", ["architecture", "tech_debt"])
+            "1": ("standard", None, False, False),      # (mode, test_steps, skip_voting, skip_lessons)
+            "2": ("self_improvement", None, False, False),
+            "3": ("rules_only", None, False, False),
+            "4": ("self_improvement", ["architecture", "tech_debt"], False, False),
+            "5": ("standard", None, True, False),       # Full assessment, no voting
+            "6": ("standard", None, True, True)         # Clean assessment, no voting, no lessons
         }
 
-        choice = self.get_menu_choice("Select mode (1-4) [1]: ", ["1", "2", "3", "4"], default="1")
+        choice = self.get_menu_choice("Select mode (1-6) [1]: ", ["1", "2", "3", "4", "5", "6"], default="1")
 
         if choice in ("q", "b"):
-            return "standard", None  # Default if user quits/backs
+            return "standard", None, False, False  # Default if user quits/backs
 
-        mode, test_steps = mode_map.get(choice, ("standard", None))
+        mode, test_steps, skip_voting, skip_lessons = mode_map.get(choice, ("standard", None, False, False))
         mode_names = {
             "standard": "Standard",
             "self_improvement": "Self-Improvement (Training)",
             "rules_only": "Rules Only"
         }
-        if test_steps:
+        if choice == "6":
+            print(f"\n✓ Clean Assessment (No Voting, No Lessons) mode selected\n")
+        elif choice == "5":
+            print(f"\n✓ Full Assessment (No Voting) mode selected\n")
+        elif test_steps:
             print(f"\n✓ Quick Test mode selected (steps: {', '.join(test_steps)})\n")
         else:
             print(f"\n✓ {mode_names[mode]} mode selected\n")
-        return mode, test_steps
+        return mode, test_steps, skip_voting, skip_lessons
 
     def _setup_verbose_callbacks(self, orchestrator):
         """Set up verbose logging callbacks on the orchestrator"""
@@ -986,21 +1004,24 @@ class InteractiveCLI:
                 original_phase_change(old_phase, new_phase)
 
         def verbose_gate_result(result):
-            cli.log_verbose(f"Gate '{result.gate_id}' completed", "result")
-            cli.log_verbose(f"Result: {'PASSED' if result.passed else 'FAILED'}", "success" if result.passed else "warning")
+            # Use gate_name (e.g. "Tech Debt Assessment") as prefix if available
+            step_prefix = f"{result.gate_name}: " if hasattr(result, 'gate_name') and result.gate_name else ""
+
+            cli.log_verbose(f"{step_prefix}Gate '{result.gate_id}' completed", "result")
+            cli.log_verbose(f"{step_prefix}Result: {'PASSED' if result.passed else 'FAILED'}", "success" if result.passed else "warning")
 
             # Show each voter's decision
             for vote in result.votes:
                 is_pass = vote.vote == "pass"
                 status = "success" if is_pass else "warning"
-                cli.log_verbose(f"{vote.voter_id}: {'PASS' if is_pass else 'FAIL'} ({vote.confidence}% confidence)", status, indent=1)
+                cli.log_verbose(f"{step_prefix}{vote.voter_id}: {'PASS' if is_pass else 'FAIL'} ({vote.confidence}% confidence)", status, indent=1)
                 cli.log_verbose(f"Reasoning: {vote.reasoning[:150]}...", "thinking", indent=2)
                 if vote.concerns:
                     concerns_str = ", ".join(vote.concerns) if isinstance(vote.concerns, list) else str(vote.concerns)
                     cli.log_verbose(f"Concerns: {concerns_str[:100]}...", "warning", indent=2)
 
             if result.aggregated_feedback:
-                cli.log_verbose(f"Summary: {result.aggregated_feedback[:200]}...", "info")
+                cli.log_verbose(f"{step_prefix}Summary: {result.aggregated_feedback[:200]}...", "info")
 
             if original_gate_result:
                 original_gate_result(result)
@@ -1027,16 +1048,17 @@ class InteractiveCLI:
                 print("\nNow confirming assessment with AI voters...")
                 print("Each voter will review the complete assessment:\n")
 
-        def verbose_voter_progress(voter_id: str, vote, total: int, completed: int):
+        def verbose_voter_progress(voter_id: str, vote, total: int, completed: int, step_name: str = None):
             """Show progress as each voter completes their review"""
-            # Format voter name nicely
+            # Format step and voter names nicely
+            step_prefix = f"{step_name}: " if step_name else ""
             voter_name = voter_id.replace("voter_", "").replace("_", " ").title()
             if vote:
                 result = "PASS" if vote.vote == "pass" else "FAIL"
                 confidence = vote.confidence
-                print(f"  ✓ Confirmed {voter_name} review... {result} ({confidence}% confidence) [{completed}/{total}]")
+                print(f"  {step_prefix}{voter_name}: {result} ({confidence}% confidence) [{completed}/{total}]")
             else:
-                print(f"  ✓ Confirmed {voter_name} review... (no response) [{completed}/{total}]")
+                print(f"  {step_prefix}{voter_name}: (no response) [{completed}/{total}]")
 
         def verbose_lesson_learned(step_name: str, pattern: str):
             """Show when a lesson is learned in self-improvement mode"""
@@ -1082,13 +1104,15 @@ class InteractiveCLI:
             self._setup_verbose_callbacks(orchestrator)
 
         # Select assessment mode
-        assessment_mode, test_steps = self._select_assessment_mode()
+        assessment_mode, test_steps, skip_voting, skip_lessons = self._select_assessment_mode()
 
         # Start the ingest workflow
         state = orchestrator.start_ingest(
             source_path,
             f"Analyzing {source_path}",
-            assessment_mode=assessment_mode
+            assessment_mode=assessment_mode,
+            skip_voting=skip_voting,
+            skip_lessons=skip_lessons
         )
 
         # Set test_steps if specified (for Quick Test mode)
@@ -1098,6 +1122,10 @@ class InteractiveCLI:
         self.log_verbose(f"Starting ingest workflow for {source_path}", "step")
         self.log_verbose(f"Session ID: {orchestrator.audit_logger.session_id if orchestrator.audit_logger else 'N/A'}", "info")
         self.log_verbose(f"Assessment mode: {assessment_mode}", "info")
+        if skip_voting:
+            self.log_verbose("Voting: DISABLED", "info")
+        if skip_lessons:
+            self.log_verbose("Lessons: DISABLED (clean assessment)", "info")
         if test_steps:
             self.log_verbose(f"Test steps: {', '.join(test_steps)}", "info")
 
@@ -1134,32 +1162,7 @@ class InteractiveCLI:
             monitor_thread.start()
             time.sleep(0.5)
             webbrowser.open("http://localhost:8765")
-            print(f"   Web URL: http://localhost:8765")
-
-            # Auto-launch console monitor in separate terminal window
-            cli_path = Path(__file__).resolve()
-            console_cmd = f'python "{cli_path}" monitor {project_name} --follow'
-            if os.name == 'nt':  # Windows
-                subprocess.Popen(
-                    f'start "AI-Dev Monitor" cmd /k {console_cmd}',
-                    shell=True
-                )
-            else:  # Linux/Mac
-                try:
-                    subprocess.Popen(
-                        ['gnome-terminal', '--', 'bash', '-c', console_cmd],
-                        start_new_session=True
-                    )
-                except FileNotFoundError:
-                    # Try xterm as fallback
-                    try:
-                        subprocess.Popen(
-                            ['xterm', '-e', console_cmd],
-                            start_new_session=True
-                        )
-                    except FileNotFoundError:
-                        print("📺 Console monitor: Unable to open terminal")
-            print("📺 Console monitor launched in separate terminal\n")
+            print(f"   Web URL: http://localhost:8765\n")
 
         # Start quit listener thread
         def quit_listener():
@@ -1247,6 +1250,29 @@ class InteractiveCLI:
                     self.get_input("Press Enter to continue...")
                     break
 
+                # Handle gate rejection for assessment - give user choice
+                if phase == WorkflowPhase.INGEST_ASSESSMENT and orchestrator.ingest_assessment:
+                    print("\n" + self.SUBHEADER)
+                    print("  The assessment gate was rejected by voters.")
+                    print("  [R] Retry assessment  [O] Override and continue  [Q] Quit")
+                    print(self.SUBHEADER)
+                    while True:
+                        choice = self.get_menu_choice("Select: ", ["r", "o", "q"])
+                        if choice == "r":
+                            # Retry - clear results and continue loop (will re-run assessment)
+                            orchestrator.state.step_results.clear()
+                            break
+                        elif choice == "o":
+                            # Override - manually advance to planning phase
+                            print("\n⚡ Overriding gate rejection, proceeding to planning...")
+                            orchestrator.state.current_phase = WorkflowPhase.INGEST_PLANNING
+                            break
+                        elif choice == "q":
+                            print("\n👋 Quitting workflow.")
+                            orchestrator.finalize_audit()
+                            return
+                    continue  # Go to next loop iteration with updated phase
+
             # Show results after assessment
             if phase == WorkflowPhase.INGEST_ASSESSMENT and orchestrator.ingest_assessment:
                 assessment = orchestrator.ingest_assessment
@@ -1267,17 +1293,17 @@ class InteractiveCLI:
                     print("  [V] View report  [A] Continue  [S] Save & exit  [D] Discard  [Q] Quit")
                     print(self.SUBHEADER)
                     while True:
-                        choice = self.get_input("Choice: ").lower()
+                        choice = self.get_menu_choice("Select: ", ["v", "a", "s", "d", "q"])
                         if choice == "v":
                             webbrowser.open(assessment_report_path.resolve().as_uri())
                         elif choice == "a":
                             break
                         elif choice == "s":
-                            print("\n✅ Assessment saved.")
+                            print("✅ Assessment saved.")
                             orchestrator.finalize_audit()
                             return
                         elif choice == "q":
-                            print("\n👋 Quitting workflow.")
+                            print("👋 Quitting workflow.")
                             orchestrator.finalize_audit()
                             return
                         elif choice == "d":
@@ -1286,7 +1312,7 @@ class InteractiveCLI:
                                 assessment_file.unlink()
                             if assessment_report_path.exists():
                                 assessment_report_path.unlink()
-                            print("\n🗑️  Assessment discarded.")
+                            print("🗑️  Assessment discarded.")
                             orchestrator.finalize_audit()
                             return
 
@@ -1310,17 +1336,17 @@ class InteractiveCLI:
                     print("  [V] View report  [A] Continue  [S] Save & exit  [D] Discard  [Q] Quit")
                     print(self.SUBHEADER)
                     while True:
-                        choice = self.get_input("Choice: ").lower()
+                        choice = self.get_menu_choice("Select: ", ["v", "a", "s", "d", "q"])
                         if choice == "v":
                             webbrowser.open(planning_report_path.resolve().as_uri())
                         elif choice == "a":
                             break
                         elif choice == "s":
-                            print("\n✅ Plan saved.")
+                            print("✅ Plan saved.")
                             orchestrator.finalize_audit()
                             return
                         elif choice == "q":
-                            print("\n👋 Quitting workflow.")
+                            print("👋 Quitting workflow.")
                             orchestrator.finalize_audit()
                             return
                         elif choice == "d":
@@ -1329,7 +1355,7 @@ class InteractiveCLI:
                                 plan_file.unlink()
                             if planning_report_path.exists():
                                 planning_report_path.unlink()
-                            print("\n🗑️  Plan discarded.")
+                            print("🗑️  Plan discarded.")
                             orchestrator.finalize_audit()
                             return
 
@@ -1463,9 +1489,9 @@ class InteractiveCLI:
             print("  [R] View Reports")
             print("  [Q] Exit to Project Menu")
             print()
-            
-            choice = self.get_input("Choice: ").lower()
-            
+
+            choice = self.get_menu_choice("Select: ", ["1", "2", "3", "4", "r", "q"])
+
             if choice == "1":
                 self._execute_by_milestone(project_name, plan)
             elif choice == "2":
@@ -1600,9 +1626,9 @@ class InteractiveCLI:
         print("  [S] Skip this item")
         print("  [B] Back to list")
         print()
-        
-        choice = self.get_input("Choice: ").lower()
-        
+
+        choice = self.get_menu_choice("Select: ", ["c", "s", "b"])
+
         if choice == "c":
             item.status = "completed"
             print(f"\n✅ Marked as completed")

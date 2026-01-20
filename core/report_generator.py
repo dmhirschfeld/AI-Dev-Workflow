@@ -280,11 +280,11 @@ class ReportGenerator:
             <div class="cat-lists">
                 <div class="strengths">
                     <strong>✓ Strengths</strong>
-                    <ul>{''.join(f'<li>{s}</li>' for s in cat.strengths[:3]) or '<li class="none">None identified</li>'}</ul>
+                    <ul>{''.join(f'<li>{s}</li>' for s in cat.strengths) or '<li class="none">None identified</li>'}</ul>
                 </div>
                 <div class="weaknesses">
                     <strong>✗ Issues</strong>
-                    <ul>{''.join(f'<li>{w}</li>' for w in cat.weaknesses[:3]) or '<li class="none">None identified</li>'}</ul>
+                    <ul>{''.join(f'<li>{w}</li>' for w in cat.weaknesses) or '<li class="none">None identified</li>'}</ul>
                 </div>
             </div>
         </div>
@@ -367,7 +367,7 @@ h3 {{ color: #cbd5e1; margin: 20px 0 15px; }}
 .card.good .status {{ color: #10b981; }}
 .card.excellent .status {{ color: #3b82f6; }}
 
-.categories {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }}
+.categories {{ display: flex; flex-direction: column; gap: 16px; }}
 .category-card {{ background: #0f172a; border-radius: 10px; padding: 16px; }}
 .cat-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: 600; }}
 .cat-score {{ font-size: 1.4rem; padding: 4px 12px; border-radius: 6px; }}

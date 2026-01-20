@@ -222,20 +222,50 @@ class WebMonitor:
                 pass
 
             def do_GET(self):
-                if self.path == "/":
-                    self._serve_html()
-                elif self.path == "/admin":
+                from urllib.parse import urlparse, parse_qs
+                parsed = urlparse(self.path)
+                path = parsed.path
+                query = parse_qs(parsed.query)
+
+                if path == "/" or path.startswith("/?"):
+                    # Check for session/project query params (from Admin links)
+                    session_param = query.get('session', [None])[0]
+                    project_param = query.get('project', [None])[0]
+                    self._serve_html(session_override=session_param, project_override=project_param)
+                elif path == "/admin":
                     self._serve_admin_html()
-                elif self.path == "/api/data":
-                    self._serve_data()
-                elif self.path == "/api/events":
+                elif path == "/api/data":
+                    session_param = query.get('session', [None])[0]
+                    project_param = query.get('project', [None])[0]
+                    self._serve_data(session_override=session_param, project_override=project_param)
+                elif path == "/api/events":
                     self._serve_events()
-                elif self.path == "/api/admin":
+                elif path == "/api/admin":
                     self._serve_admin_data()
+                elif path.startswith("/projects/") and "/reports/" in path:
+                    self._serve_report()
                 else:
                     self.send_error(404)
 
-            def _serve_html(self):
+            def _serve_report(self):
+                """Serve assessment report files"""
+                import urllib.parse
+                # Parse path: /projects/{project}/reports/{filename}
+                parts = self.path.split("/")
+                if len(parts) >= 5:
+                    proj = urllib.parse.unquote(parts[2])
+                    filename = urllib.parse.unquote(parts[4])
+                    # Look for report in projects directory
+                    report_path = project_dir.parent / proj / "reports" / filename
+                    if report_path.exists() and report_path.suffix == ".html":
+                        self.send_response(200)
+                        self.send_header("Content-Type", "text/html")
+                        self.end_headers()
+                        self.wfile.write(report_path.read_bytes())
+                        return
+                self.send_error(404)
+
+            def _serve_html(self, session_override=None, project_override=None):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")
                 self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -274,9 +304,12 @@ class WebMonitor:
         .event .agent { color: #ffd700; }
         .event .ok { color: #00ff88; }
         .event .fail { color: #ff6b6b; }
-        .event .detail { color: #aaa; margin-top: 5px; white-space: pre-wrap; }
+        .event .detail { color: #aaa; margin-top: 8px; white-space: pre-wrap; font-size: 0.85em; line-height: 1.4; background: #1a1a2e; padding: 10px; border-radius: 4px; }
         .event .tokens { color: #888; font-size: 0.85em; }
         .event .cost { color: #00ff88; font-size: 0.85em; }
+        .event .prompt { color: #888; margin-top: 8px; white-space: pre-wrap; font-size: 0.8em; line-height: 1.3; background: #151525; padding: 10px; border-radius: 4px; border-left: 3px solid #00d4ff; max-height: 300px; overflow-y: auto; }
+        .event .prompt-header { color: #00d4ff; font-weight: bold; margin-top: 5px; cursor: pointer; }
+        .event .prompt-header:hover { text-decoration: underline; }
         .refresh { color: #888; font-size: 0.8em; margin-top: 10px; }
         #error { color: #ff6b6b; padding: 10px; display: none; }
     </style>
@@ -316,7 +349,9 @@ class WebMonitor:
             return n.toString();
         }
         function load() {
-            fetch('/api/data')
+            // Pass through any session/project query params
+            var dataUrl = '/api/data' + window.location.search;
+            fetch(dataUrl)
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
                     document.getElementById('error').style.display = 'none';
@@ -350,21 +385,27 @@ class WebMonitor:
                             var status = e.status === 'success' ? 'ok' : (e.status === 'failure' ? 'fail' : '');
                             var statusText = e.status === 'success' ? '[OK]' : (e.status === 'failure' ? '[FAIL]' : '[-]');
                             var detail = e.output_summary || '';
+                            var prompt = e.input_summary || '';
                             var inTok = e.input_tokens || 0;
                             var outTok = e.output_tokens || 0;
                             var evtCost = e.cost_usd || 0;
+                            var duration = e.duration_ms || 0;
+                            var evtId = 'evt_' + i;
 
                             html += '<div class="event">';
                             html += '<span class="time">' + time + '</span> ';
                             html += '<span class="' + status + '">' + statusText + '</span> ';
                             html += '<span class="type">' + type + '</span> ';
                             html += '<span class="agent">' + agent + '</span>';
-                            if (inTok > 0 || outTok > 0 || evtCost > 0) {
-                                html += ' <span class="tokens">[' + inTok + '/' + outTok + ' tok]</span>';
-                                html += ' <span class="cost">$' + evtCost.toFixed(4) + '</span>';
+                            if (duration > 0) html += ' <span class="tokens">' + duration + 'ms</span>';
+                            if (inTok > 0 || outTok > 0) html += ' <span class="tokens">[' + inTok + '/' + outTok + ' tok]</span>';
+                            if (evtCost > 0) html += ' <span class="cost">$' + evtCost.toFixed(4) + '</span>';
+                            if (prompt && prompt.length > 50) {
+                                html += '<div class="prompt-header" onclick="var p=document.getElementById(\\''+evtId+'\\');p.style.display=p.style.display===\\'none\\'?\\'block\\':\\'none\\';">&#9654; Prompt (click to expand)</div>';
+                                html += '<div class="prompt" id="'+evtId+'" style="display:none">' + prompt.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
                             }
                             if (detail) {
-                                html += '<div class="detail">' + detail.substring(0, 500) + '</div>';
+                                html += '<div class="detail">' + detail.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
                             }
                             html += '</div>';
                         }
@@ -385,14 +426,21 @@ class WebMonitor:
 </html>"""
                 self.wfile.write(html.encode())
 
-            def _serve_data(self):
+            def _serve_data(self, session_override=None, project_override=None):
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
 
-                session_id = fixed_session_id or get_latest_session(project_dir)
-                events = read_session_events(project_dir, session_id) if session_id else []
+                # Use override project if provided (from Admin link), otherwise use fixed project
+                effective_project_dir = project_dir
+                if project_override:
+                    override_path = project_dir.parent / project_override
+                    if override_path.exists():
+                        effective_project_dir = override_path
+
+                session_id = session_override or fixed_session_id or get_latest_session(effective_project_dir)
+                events = read_session_events(effective_project_dir, session_id) if session_id else []
 
                 # Find current phase and session start
                 phase = "unknown"
@@ -480,6 +528,14 @@ class WebMonitor:
         .bar { background: linear-gradient(180deg, #00d4ff 0%, #0088aa 100%); min-width: 20px; border-radius: 3px 3px 0 0; transition: height 0.3s; }
         .bar:hover { background: linear-gradient(180deg, #00ff88 0%, #00aa66 100%); }
         .chart-label { text-align: center; color: #666; font-size: 0.7em; margin-top: 5px; }
+        .kebab { position: relative; cursor: pointer; padding: 5px 10px; }
+        .kebab-dots { font-size: 1.2em; color: #888; }
+        .kebab:hover .kebab-dots { color: #00d4ff; }
+        .kebab-menu { display: none; position: absolute; left: 0; top: 100%; background: #252545; border: 1px solid #333; border-radius: 6px; min-width: 120px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .kebab-menu.show { display: block; }
+        .kebab-menu a { display: block; padding: 10px 15px; color: #eee; text-decoration: none; }
+        .kebab-menu a:hover { background: #333; color: #00d4ff; }
+        .actions-col { width: 50px; }
     </style>
 </head>
 <body>
@@ -543,6 +599,7 @@ class WebMonitor:
         <table>
             <thead>
                 <tr>
+                    <th class="actions-col"></th>
                     <th>Session</th>
                     <th>Project</th>
                     <th>Date</th>
@@ -552,7 +609,7 @@ class WebMonitor:
                 </tr>
             </thead>
             <tbody id="sessions-table">
-                <tr><td colspan="6">Loading...</td></tr>
+                <tr><td colspan="7">Loading...</td></tr>
             </tbody>
         </table>
     </div>
@@ -560,6 +617,18 @@ class WebMonitor:
     <div class="refresh">Auto-refreshes every 10 seconds</div>
 
     <script>
+        // Close menus when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.kebab')) {
+                document.querySelectorAll('.kebab-menu').forEach(function(m) { m.classList.remove('show'); });
+            }
+        });
+        function toggleMenu(el) {
+            var menu = el.querySelector('.kebab-menu');
+            var wasOpen = menu.classList.contains('show');
+            document.querySelectorAll('.kebab-menu').forEach(function(m) { m.classList.remove('show'); });
+            if (!wasOpen) menu.classList.add('show');
+        }
         function formatNumber(n) {
             if (n >= 1000000) return (n/1000000).toFixed(2) + 'M';
             if (n >= 1000) return (n/1000).toFixed(1) + 'K';
@@ -620,7 +689,15 @@ class WebMonitor:
                     var sessions = d.sessions || [];
                     for (var i = 0; i < Math.min(sessions.length, 20); i++) {
                         var s = sessions[i];
+                        var eventsUrl = '/?session=' + s.session_id + '&project=' + encodeURIComponent(s.project);
+                        var reportUrl = '/projects/' + encodeURIComponent(s.project) + '/reports/assessment_report.html';
                         sessionsHtml += '<tr>';
+                        sessionsHtml += '<td class="kebab" onclick="toggleMenu(this)">';
+                        sessionsHtml += '<span class="kebab-dots">&#8942;</span>';
+                        sessionsHtml += '<div class="kebab-menu">';
+                        sessionsHtml += '<a href="' + eventsUrl + '">&#128202; Events</a>';
+                        sessionsHtml += '<a href="' + reportUrl + '" target="_blank">&#128196; Report</a>';
+                        sessionsHtml += '</div></td>';
                         sessionsHtml += '<td>' + s.session_id.substring(0, 16) + '</td>';
                         sessionsHtml += '<td class="project-name">' + s.project + '</td>';
                         sessionsHtml += '<td class="date">' + formatDate(s.started_at) + '</td>';
@@ -629,7 +706,7 @@ class WebMonitor:
                         sessionsHtml += '<td class="cost">$' + s.cost.toFixed(4) + '</td>';
                         sessionsHtml += '</tr>';
                     }
-                    document.getElementById('sessions-table').innerHTML = sessionsHtml || '<tr><td colspan="6">No sessions</td></tr>';
+                    document.getElementById('sessions-table').innerHTML = sessionsHtml || '<tr><td colspan="7">No sessions</td></tr>';
                 })
                 .catch(function(err) {
                     console.error('Admin data error:', err);
@@ -690,18 +767,45 @@ class StandaloneServer:
                 pass  # Suppress logging
 
             def do_GET(self):
-                if self.path == "/":
-                    self._serve_monitor_html()
-                elif self.path == "/admin":
+                from urllib.parse import urlparse, parse_qs
+                parsed = urlparse(self.path)
+                path = parsed.path
+                query = parse_qs(parsed.query)
+
+                if path == "/" or path.startswith("/?"):
+                    session_param = query.get('session', [None])[0]
+                    project_param = query.get('project', [None])[0]
+                    self._serve_monitor_html(session_override=session_param, project_override=project_param)
+                elif path == "/admin":
                     self._serve_admin_html()
-                elif self.path == "/api/data":
-                    self._serve_monitor_data()
-                elif self.path == "/api/admin":
+                elif path == "/api/data":
+                    session_param = query.get('session', [None])[0]
+                    project_param = query.get('project', [None])[0]
+                    self._serve_monitor_data(session_override=session_param, project_override=project_param)
+                elif path == "/api/admin":
                     self._serve_admin_data()
+                elif path.startswith("/projects/") and "/reports/" in path:
+                    self._serve_report()
                 else:
                     self.send_error(404)
 
-            def _serve_monitor_html(self):
+            def _serve_report(self):
+                """Serve assessment report files"""
+                import urllib.parse
+                parts = self.path.split("/")
+                if len(parts) >= 5:
+                    proj = urllib.parse.unquote(parts[2])
+                    filename = urllib.parse.unquote(parts[4])
+                    report_path = projects_dir / proj / "reports" / filename
+                    if report_path.exists() and report_path.suffix == ".html":
+                        self.send_response(200)
+                        self.send_header("Content-Type", "text/html")
+                        self.end_headers()
+                        self.wfile.write(report_path.read_bytes())
+                        return
+                self.send_error(404)
+
+            def _serve_monitor_html(self, session_override=None, project_override=None):
                 """Serve monitor page - shows waiting state or active session"""
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")
@@ -746,6 +850,9 @@ class StandaloneServer:
         .event .tokens { color: #888; font-size: 0.85em; }
         .event .cost { color: #00ff88; font-size: 0.85em; }
         .event .detail { color: #aaa; margin-top: 8px; white-space: pre-wrap; font-size: 0.85em; line-height: 1.4; background: #1a1a2e; padding: 10px; border-radius: 4px; }
+        .event .prompt { color: #888; margin-top: 8px; white-space: pre-wrap; font-size: 0.8em; line-height: 1.3; background: #151525; padding: 10px; border-radius: 4px; border-left: 3px solid #00d4ff; max-height: 300px; overflow-y: auto; }
+        .event .prompt-header { color: #00d4ff; font-weight: bold; margin-bottom: 5px; cursor: pointer; }
+        .event .prompt-header:hover { text-decoration: underline; }
         .waiting { text-align: center; padding: 60px 20px; }
         .waiting .icon { font-size: 4em; margin-bottom: 20px; }
         .waiting h2 { color: #888; margin-bottom: 10px; }
@@ -779,7 +886,8 @@ class StandaloneServer:
         }
         function load() {
             var scrollY = window.scrollY;
-            fetch('/api/data')
+            var dataUrl = '/api/data' + window.location.search;
+            fetch(dataUrl)
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
                     if (!d.session || d.session === 'none' || !d.events || d.events.length === 0) {
@@ -812,7 +920,9 @@ class StandaloneServer:
                             var outTok = e.output_tokens || 0;
                             var evtCost = e.cost_usd || 0;
                             var detail = e.output_summary || '';
+                            var prompt = e.input_summary || '';
                             var duration = e.duration_ms || 0;
+                            var evtId = 'evt_' + i;
                             html += '<div class="event">';
                             html += '<span class="time">' + time + '</span> ';
                             html += '<span class="' + status + '">' + statusText + '</span> ';
@@ -821,6 +931,10 @@ class StandaloneServer:
                             if (duration > 0) html += ' <span class="tokens">' + duration + 'ms</span>';
                             if (inTok > 0 || outTok > 0) html += ' <span class="tokens">[' + inTok + '/' + outTok + ' tok]</span>';
                             if (evtCost > 0) html += ' <span class="cost">$' + evtCost.toFixed(4) + '</span>';
+                            if (prompt && prompt.length > 50) {
+                                html += '<div class="prompt-header" onclick="var p=document.getElementById(\\''+evtId+'\\');p.style.display=p.style.display===\\'none\\'?\\'block\\':\\'none\\';">&#9654; Prompt (click to expand)</div>';
+                                html += '<div class="prompt" id="'+evtId+'" style="display:none">' + prompt.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+                            }
                             if (detail) html += '<div class="detail">' + detail.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
                             html += '</div>';
                         }
@@ -840,36 +954,45 @@ class StandaloneServer:
 </html>"""
                 self.wfile.write(html.encode())
 
-            def _serve_monitor_data(self):
-                """Serve monitor data - find most recent active session"""
+            def _serve_monitor_data(self, session_override=None, project_override=None):
+                """Serve monitor data - find most recent active session or use override"""
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
 
-                # Find most recent session across all projects
-                best_session = None
-                best_project = None
-                best_time = None
+                # If session/project specified via query params (from Admin link), use those
+                if session_override and project_override:
+                    override_project_dir = projects_dir / project_override
+                    if override_project_dir.exists():
+                        events = read_session_events(override_project_dir, session_override)
+                        best_session = session_override
+                        best_project = override_project_dir
+                    else:
+                        self.wfile.write(json.dumps({"session": None, "events": []}).encode())
+                        return
+                else:
+                    # Find most recent session across all projects
+                    best_session = None
+                    best_project = None
+                    best_time = None
 
-                for project_dir in projects_dir.iterdir():
-                    if project_dir.is_dir():
-                        audit_dir = project_dir / "audit"
-                        if audit_dir.exists():
-                            for session_file in audit_dir.glob("session_*.jsonl"):
-                                # Get modification time
-                                mtime = session_file.stat().st_mtime
-                                if best_time is None or mtime > best_time:
-                                    best_time = mtime
-                                    best_session = session_file.stem.replace("session_", "")
-                                    best_project = project_dir
+                    for project_dir in projects_dir.iterdir():
+                        if project_dir.is_dir():
+                            audit_dir = project_dir / "audit"
+                            if audit_dir.exists():
+                                for session_file in audit_dir.glob("session_*.jsonl"):
+                                    mtime = session_file.stat().st_mtime
+                                    if best_time is None or mtime > best_time:
+                                        best_time = mtime
+                                        best_session = session_file.stem.replace("session_", "")
+                                        best_project = project_dir
 
-                if not best_session or not best_project:
-                    self.wfile.write(json.dumps({"session": None, "events": []}).encode())
-                    return
+                    if not best_session or not best_project:
+                        self.wfile.write(json.dumps({"session": None, "events": []}).encode())
+                        return
 
-                # Read the session
-                events = read_session_events(best_project, best_session)
+                    events = read_session_events(best_project, best_session)
 
                 # Find phase
                 phase = "unknown"
@@ -946,6 +1069,14 @@ class StandaloneServer:
         .bar { background: linear-gradient(180deg, #00d4ff 0%, #0088aa 100%); min-width: 20px; border-radius: 3px 3px 0 0; }
         .bar:hover { background: linear-gradient(180deg, #00ff88 0%, #00aa66 100%); }
         .chart-label { text-align: center; color: #666; font-size: 0.7em; margin-top: 5px; }
+        .kebab { position: relative; cursor: pointer; padding: 5px 10px; }
+        .kebab-dots { font-size: 1.2em; color: #888; }
+        .kebab:hover .kebab-dots { color: #00d4ff; }
+        .kebab-menu { display: none; position: absolute; left: 0; top: 100%; background: #252545; border: 1px solid #333; border-radius: 6px; min-width: 120px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .kebab-menu.show { display: block; }
+        .kebab-menu a { display: block; padding: 10px 15px; color: #eee; text-decoration: none; }
+        .kebab-menu a:hover { background: #333; color: #00d4ff; }
+        .actions-col { width: 50px; }
     </style>
 </head>
 <body>
@@ -969,12 +1100,14 @@ class StandaloneServer:
         <tbody id="projects-table"><tr><td colspan="5">Loading...</td></tr></tbody></table>
     </div>
     <div class="section"><h2>Recent Sessions</h2>
-        <table><thead><tr><th>Session</th><th>Project</th><th>Date</th><th>Calls</th><th>Tokens</th><th>Cost</th></tr></thead>
-        <tbody id="sessions-table"><tr><td colspan="6">Loading...</td></tr></tbody></table>
+        <table><thead><tr><th class="actions-col"></th><th>Session</th><th>Project</th><th>Date</th><th>Calls</th><th>Tokens</th><th>Cost</th></tr></thead>
+        <tbody id="sessions-table"><tr><td colspan="7">Loading...</td></tr></tbody></table>
     </div>
     <div class="refresh">Auto-refreshes every 10 seconds</div>
     </div>
     <script>
+        document.addEventListener('click', function(e) { if (!e.target.closest('.kebab')) document.querySelectorAll('.kebab-menu').forEach(function(m) { m.classList.remove('show'); }); });
+        function toggleMenu(el) { var m = el.querySelector('.kebab-menu'); var o = m.classList.contains('show'); document.querySelectorAll('.kebab-menu').forEach(function(x) { x.classList.remove('show'); }); if (!o) m.classList.add('show'); }
         function fmt(n) { return n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : n.toString(); }
         function fmtDate(d) { return d ? d.substring(0,10)+' '+d.substring(11,16) : '-'; }
         function load() {
@@ -991,8 +1124,8 @@ class StandaloneServer:
                 document.getElementById('daily-chart').innerHTML=ch||'<div style="color:#666;padding:20px">No data</div>';
                 var ph='',ps=d.projects||[];for(var i=0;i<ps.length;i++){var p=ps[i];ph+='<tr><td class="project-name">'+p.name+'</td><td>'+p.sessions+'</td><td class="tokens">'+fmt(p.tokens)+'</td><td class="cost">$'+p.cost.toFixed(4)+'</td><td class="date">'+fmtDate(p.last_activity)+'</td></tr>';}
                 document.getElementById('projects-table').innerHTML=ph||'<tr><td colspan="5">No projects</td></tr>';
-                var sh='',ss=d.sessions||[];for(var i=0;i<Math.min(ss.length,20);i++){var s=ss[i];sh+='<tr><td>'+s.session_id.substring(0,16)+'</td><td class="project-name">'+s.project+'</td><td class="date">'+fmtDate(s.started_at)+'</td><td>'+s.agent_calls+'</td><td class="tokens">'+fmt(s.tokens)+'</td><td class="cost">$'+s.cost.toFixed(4)+'</td></tr>';}
-                document.getElementById('sessions-table').innerHTML=sh||'<tr><td colspan="6">No sessions</td></tr>';
+                var sh='',ss=d.sessions||[];for(var i=0;i<Math.min(ss.length,20);i++){var s=ss[i];var eu='/?session='+s.session_id+'&project='+encodeURIComponent(s.project);var ru='/projects/'+encodeURIComponent(s.project)+'/reports/assessment_report.html';sh+='<tr><td class="kebab" onclick="toggleMenu(this)"><span class="kebab-dots">&#8942;</span><div class="kebab-menu"><a href="'+eu+'">&#128202; Events</a><a href="'+ru+'" target="_blank">&#128196; Report</a></div></td><td>'+s.session_id.substring(0,16)+'</td><td class="project-name">'+s.project+'</td><td class="date">'+fmtDate(s.started_at)+'</td><td>'+s.agent_calls+'</td><td class="tokens">'+fmt(s.tokens)+'</td><td class="cost">$'+s.cost.toFixed(4)+'</td></tr>';}
+                document.getElementById('sessions-table').innerHTML=sh||'<tr><td colspan="7">No sessions</td></tr>';
             }).catch(e=>console.error(e));
         }
         load();setInterval(load,10000);

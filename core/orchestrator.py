@@ -241,11 +241,15 @@ class Orchestrator:
         self.on_agent_response: Callable[[AgentResponse], None] | None = None
         self.on_escalation: Callable[[str, WorkflowState], None] | None = None
         self.on_progress: Callable[[str, int, int], None] | None = None  # (step_name, current, total)
-        self.on_voter_progress: Callable[[str, any, int, int], None] | None = None  # (voter_id, vote, total, completed)
+        self.on_voter_progress: Callable[[str, any, int, int, str], None] | None = None  # (voter_id, vote, total, completed, step_name)
         self.on_lesson_learned: Callable[[str, str], None] | None = None  # (step_name, lesson_pattern)
 
         # Quit flag for graceful exit
         self._quit_requested = False
+
+        # Assessment options (set by start_ingest)
+        self.skip_voting = False
+        self.skip_lessons = False
 
         # Wire audit logger to callbacks if enabled
         if self.audit_logger:
@@ -264,7 +268,9 @@ class Orchestrator:
         self,
         source_path: str,
         description: str = "",
-        assessment_mode: str = "standard"
+        assessment_mode: str = "standard",
+        skip_voting: bool = False,
+        skip_lessons: bool = False
     ) -> WorkflowState:
         """
         Start an ingest workflow for analyzing existing codebase.
@@ -276,8 +282,12 @@ class Orchestrator:
                 - standard: AI assessment with learned knowledge, no per-step voting
                 - self_improvement: AI assessment with per-step voting, feedback captured
                 - rules_only: Only run deterministic rules, no AI
+            skip_voting: If True, skip all voting gates (assessment still runs)
+            skip_lessons: If True, don't include lessons in AI prompts (clean assessment)
         """
         self.source_path = source_path
+        self.skip_voting = skip_voting
+        self.skip_lessons = skip_lessons
         self.state = WorkflowState(
             project_id=self.project_id,
             current_phase=WorkflowPhase.INGEST_ASSESSMENT,
@@ -289,8 +299,9 @@ class Orchestrator:
         self.ingest_assessment = None
         self.ingest_plan = None
 
-        # Record project in lessons database
-        self.lessons_db.record_project(self.project_id)
+        # Record project in lessons database (unless skipping lessons)
+        if not skip_lessons:
+            self.lessons_db.record_project(self.project_id)
 
         return self.state
 
@@ -761,11 +772,17 @@ Please revise your work addressing the feedback above.
         # Get context
         context = f"Reviewing step '{step_name}' in phase {self.state.current_phase.value}"
 
+        # Create wrapper callback that includes step name
+        def step_voter_progress(voter_id, vote, total, completed):
+            if self.on_voter_progress:
+                self.on_voter_progress(voter_id, vote, total, completed, step_name)
+
         # Run the step_validation gate with step name for display
         result = await self.gate_system.run_gate(
             "step_validation",
             artifact,
-            context
+            context,
+            on_voter_progress=step_voter_progress
         )
 
         # Add step name to result for display purposes
@@ -858,14 +875,18 @@ Please revise your work addressing the feedback above.
 
             else:
                 # SELF-IMPROVEMENT MODE: Parallel assessments, then parallel voting
-                # Phase 1: Run ALL 10 assessments in parallel
+                # Determine how many steps to run
+                steps_to_assess = self.state.test_steps if self.state.test_steps else [s[1] for s in step_definitions]
+                num_steps = len(steps_to_assess)
+
+                # Phase 1: Run assessments in parallel
                 if self.on_progress:
-                    self.on_progress("🚀 Phase 1: Running all 10 assessments in parallel...", 0, 10)
+                    self.on_progress(f"🚀 Phase 1: Running {num_steps} assessment(s) in parallel...", 0, num_steps)
 
                 def on_assess_done(step_name: str, result):
                     self.state.current_step += 1
                     if self.on_progress:
-                        self.on_progress(f"✓ {step_name} assessed", self.state.current_step, 10)
+                        self.on_progress(f"✓ {step_name} assessed", self.state.current_step, num_steps)
 
                 all_results = await self.ai_assessor.assess_all(
                     assessment_context,
@@ -888,7 +909,7 @@ Please revise your work addressing the feedback above.
 
                 # Phase 2: Run ALL voting in parallel with retry that re-runs assessment
                 if self.on_progress:
-                    self.on_progress("🗳️ Phase 2: Running all 10 voting sessions in parallel...", 0, 10)
+                    self.on_progress(f"🗳️ Phase 2: Running {num_steps} voting session(s) in parallel...", 0, num_steps)
 
                 async def vote_on_step(step_name: str, step_key: str) -> tuple[str, bool, str]:
                     """Vote on a single step with retry that re-runs assessment on failure."""
@@ -952,10 +973,18 @@ Please revise your work addressing the feedback above.
 
                     return step_name, False, f"Failed after 3 attempts. Last feedback: {last_feedback}"
 
-                # Run all voting in parallel
+                # Run all voting in parallel - only for steps that were assessed
                 import time
                 vote_start = time.time()
-                vote_tasks = [vote_on_step(name, key) for name, key in step_definitions]
+
+                # Filter step_definitions by test_steps if Quick Test mode
+                if self.state.test_steps:
+                    steps_to_vote = [(name, key) for name, key in step_definitions
+                                     if key in self.state.test_steps]
+                else:
+                    steps_to_vote = step_definitions
+
+                vote_tasks = [vote_on_step(name, key) for name, key in steps_to_vote]
                 vote_results = await asyncio.gather(*vote_tasks, return_exceptions=True)
                 vote_duration = time.time() - vote_start
                 print(f"\n⚡ All voting completed in {vote_duration:.1f}s")
@@ -971,8 +1000,9 @@ Please revise your work addressing the feedback above.
                             failed_steps.append((step_name, feedback))
 
                 if self.on_progress:
-                    passed = 10 - len(failed_steps)
-                    self.on_progress(f"Voting complete: {passed}/10 passed", 10, 10)
+                    total_steps = len(steps_to_vote)
+                    passed = total_steps - len(failed_steps)
+                    self.on_progress(f"Voting complete: {passed}/{total_steps} passed", total_steps, total_steps)
 
                 # Report failures but continue (learning happened)
                 if failed_steps:
@@ -1015,6 +1045,13 @@ Please revise your work addressing the feedback above.
                 decision=f"Assessment complete: {assessment.overall_score}/100",
                 rationale=f"Found {len(assessment.all_findings)} findings across {assessment.files_analyzed} files"
             )
+
+            # Skip voting if requested
+            if self.skip_voting:
+                if self.on_progress:
+                    self.on_progress("Assessment complete (voting skipped)", 10, 10)
+                self._advance_phase()
+                return True, artifact
 
             # Run final AI voting gate to review complete assessment
             if self.on_progress:
@@ -1083,7 +1120,7 @@ Please revise your work addressing the feedback above.
 
         elif phase == WorkflowPhase.INGEST_PLANNING:
             # Run improvement planning
-            from core.planning import IngestPlanner
+            from core.ingest_planner import IngestPlanner
 
             if not self.ingest_assessment:
                 return False, "No assessment available. Run INGEST_ASSESSMENT first."
@@ -1261,6 +1298,15 @@ Please revise your work addressing the feedback above.
 
         stats = project_config.get('stats', {})
 
+        # Combine findings from ALL step results (not just heuristic assessor)
+        all_step_findings = []
+        for step_result in [arch, quality, debt, security, nav, style, a11y, perf, test, docs]:
+            if step_result and hasattr(step_result, 'findings') and step_result.findings:
+                all_step_findings.extend(step_result.findings)
+
+        # Use step findings if available, otherwise fall back to heuristic assessor findings
+        combined_findings = all_step_findings if all_step_findings else assessor.findings
+
         return AssessmentReport(
             project_name=project_config.get('project', {}).get('name', 'Unknown'),
             assessed_at=datetime.now().isoformat(),
@@ -1277,11 +1323,11 @@ Please revise your work addressing the feedback above.
             performance=perf,
             testing=test,
             documentation=docs,
-            all_findings=assessor.findings,
-            critical_count=sum(1 for f in assessor.findings if f.severity == 'critical'),
-            high_count=sum(1 for f in assessor.findings if f.severity == 'high'),
-            ai_fixable_count=sum(1 for f in assessor.findings if f.ai_can_fix),
-            files_analyzed=stats.get('source_file_count', 0),
+            all_findings=combined_findings,
+            critical_count=sum(1 for f in combined_findings if f.severity == 'critical'),
+            high_count=sum(1 for f in combined_findings if f.severity == 'high'),
+            ai_fixable_count=sum(1 for f in combined_findings if getattr(f, 'ai_can_fix', False)),
+            files_analyzed=stats.get('source_file_count', 0) or len(self.state.step_results) * 10,  # Estimate if not available
             lines_analyzed=stats.get('total_lines', 0),
         )
 

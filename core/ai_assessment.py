@@ -34,6 +34,7 @@ class StepResult:
     rule_findings: list[Finding]    # From rules engine
     ai_findings: list[Finding]      # From AI agent
     raw_ai_response: str = ""
+    raw_prompt: str = ""            # The prompt sent to AI
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_dict(self) -> dict:
@@ -151,6 +152,8 @@ class AIAssessmentAgent:
         self.lessons_db = lessons_db
         self.rules_engine = rules_engine or RulesEngine(lessons_db)
         self.executor = agent_executor
+        self.skip_lessons = False  # Set to True to skip lessons in prompt
+        self._last_prompt = ""     # Store last prompt for logging
 
         # Get step metadata for prompt building
         self.definition = self.STEP_METADATA.get(step_name, {
@@ -178,6 +181,7 @@ class AIAssessmentAgent:
 
         # 2. Build AI prompt with lessons learned
         prompt = self._build_prompt(context, rule_findings)
+        self._last_prompt = prompt  # Store for inclusion in result
 
         # 3. Call AI agent
         ai_response = ""
@@ -192,53 +196,18 @@ class AIAssessmentAgent:
                     agent_id = "developer"
                     print(f"  ⚠️ {self.step_name}: Using fallback agent '{agent_id}' (mapped agent not found)")
 
-                # Retry loop for inadequate responses
-                # Minimum thresholds for an adequate expert assessment
-                MIN_RESPONSE_CHARS = 5000  # Expert assessments should be detailed
-                MIN_FINDINGS = 3  # Should find at least a few issues or improvements
+                # Single attempt - no retry loop pushing for more findings
+                # Focus on accuracy, not quantity
+                response = await self.executor.execute(agent_id, prompt, "")
 
-                max_attempts = 2
-                for attempt in range(max_attempts):
-                    response = await self.executor.execute(agent_id, prompt, "")
-
-                    if response.success:
-                        ai_response = response.content
-                        ai_findings = self._parse_ai_response(ai_response)
-
-                        # Check if response meets minimum expert standards
-                        has_min_length = len(ai_response) >= MIN_RESPONSE_CHARS
-                        has_min_findings = len(ai_findings) >= MIN_FINDINGS
-                        is_adequate = has_min_length and has_min_findings
-
-                        if is_adequate or attempt == max_attempts - 1:
-                            # Debug: Log AI response quality
-                            status = "✓" if is_adequate else "⚠️ BELOW STANDARDS"
-                            print(f"  📊 {self.step_name}: {status} response={len(ai_response)} chars, parsed={len(ai_findings)} findings")
-                            break
-                        else:
-                            # Response was inadequate, retry with explicit instruction
-                            issues = []
-                            if not has_min_length:
-                                issues.append(f"only {len(ai_response)} chars (need {MIN_RESPONSE_CHARS}+)")
-                            if not has_min_findings:
-                                issues.append(f"only {len(ai_findings)} findings (need {MIN_FINDINGS}+)")
-                            print(f"  🔄 {self.step_name}: Inadequate response ({', '.join(issues)}), retrying...")
-                            prompt = f"""CRITICAL: Your previous response was INADEQUATE for an expert assessment.
-
-Issues with your previous response:
-- {chr(10).join('- ' + i for i in issues)}
-
-As an EXPERT {self.definition['role']}, you MUST:
-1. Provide a COMPREHENSIVE assessment of at least 10,000 characters
-2. Include at least 5 specific findings with file locations and evidence
-3. Analyze the actual code provided - not generic observations
-4. Be thorough and reproducible - another expert should reach similar conclusions
-
-{prompt}"""
-                    else:
-                        ai_response = f"Agent error: {response.error}"
-                        print(f"  ⚠️ {self.step_name}: Agent failed - {response.error}")
-                        break
+                if response.success:
+                    ai_response = response.content
+                    ai_findings = self._parse_ai_response(ai_response)
+                    # Log response stats (findings count of 0 is valid for clean code)
+                    print(f"  📊 {self.step_name}: response={len(ai_response)} chars, findings={len(ai_findings)}")
+                else:
+                    ai_response = f"Agent error: {response.error}"
+                    print(f"  ⚠️ {self.step_name}: Agent failed - {response.error}")
             except Exception as e:
                 ai_response = f"AI assessment failed: {e}"
                 print(f"  ❌ {self.step_name}: Exception - {e}")
@@ -351,12 +320,17 @@ Your previous assessment was rejected by voters. Here is their feedback:
 
     def _build_prompt(self, context: AssessmentContext, rule_findings: list[Finding]) -> str:
         """Build prompt incorporating lessons learned."""
-        lessons = self.lessons_db.get_lessons(self.step_name)
-        examples = self.lessons_db.get_examples(self.step_name)
-        rule_guidance = self.rules_engine.get_rule_guidance(self.step_name, context)
+        # Skip lessons if flag is set (clean assessment mode)
+        if self.skip_lessons:
+            lessons = []
+            examples = []
+            learned_format_rules = []
+        else:
+            lessons = self.lessons_db.get_lessons(self.step_name)
+            examples = self.lessons_db.get_examples(self.step_name)
+            learned_format_rules = self.lessons_db.get_format_rules()
 
-        # Get learned format rules from database
-        learned_format_rules = self.lessons_db.get_format_rules()
+        rule_guidance = self.rules_engine.get_rule_guidance(self.step_name, context)
 
         lessons_text = self._format_lessons(lessons) if lessons else "No previous lessons."
         examples_text = self._format_examples(examples) if examples else ""
@@ -426,24 +400,45 @@ Respond with a JSON object:
 }}
 ```
 
-IMPORTANT - MINIMUM OUTPUT REQUIREMENTS:
-- You MUST provide at least 5 findings (more if issues exist)
-- Your response MUST be at least 10,000 characters - brief responses are unacceptable
-- Score should reflect actual code quality, not just presence of issues
-- Only report findings NOT already covered by the rules
+ACCURACY REQUIREMENTS (CRITICAL):
+- ONLY report REAL issues you can prove with specific evidence from the code
+- If no issues exist for this category, return an empty findings array - that's OK!
+- NEVER fabricate or exaggerate findings to meet a quota
+- Each finding MUST have a real file path and line number from the provided code
+- If you cannot point to specific code, do NOT include the finding
+- Score should reflect actual code quality - a high score (80+) is correct if code is good
+
+DO NOT MAKE ASSUMPTIONS:
+- Do NOT assume what the project "should" have based on other files you see
+- Do NOT report "missing backend" just because you see deployment configs
+- Do NOT report "missing API layer" - the project may not need one
+- Do NOT report "wrong database choice" - localStorage/SQLite may be intentional
+- Do NOT invent requirements the project never claimed to fulfill
+- Assess what EXISTS, not what you think SHOULD exist
+- Only flag something as missing if the code explicitly references it but it's absent
+
+OUTPUT QUALITY REQUIREMENTS:
 - Be specific with locations and evidence - no "implied" or "estimated" values
 - Vary effort_hours based on actual complexity (NOT uniform 1.0 for all)
 - Always fill impact field with specific consequences (never empty)
-- Provide actionable recommendations
-- Include both problems found AND opportunities for improvement
+- Only report findings NOT already covered by the rules
 
-CONSISTENCY REQUIREMENTS:
-- As an expert assessor, your analysis should be thorough and reproducible
-- Given the same codebase, your findings should be consistent across runs
-- Focus on objective, measurable issues rather than subjective opinions
-- Prioritize findings by actual impact, not by order discovered
+SEVERITY GUIDELINES (use appropriately):
+- critical: ONLY for proven security vulnerabilities, data loss risk, or production-breaking bugs
+- high: Broken functionality that you can demonstrate with specific code evidence
+- medium: Code quality problems you can point to with file:line references
+- low: Minor improvements with specific locations
+- info: Observations and suggestions
+
+SEVERITY RESTRICTIONS:
+- "Missing" features can NEVER be critical or high - the project may not need them
+- Architectural opinions (e.g., "should use microservices") are info at most
+- Technology choices (e.g., "localStorage instead of PostgreSQL") are NOT findings unless broken
 
 {self._format_critical_checklist(lessons_text)}
+
+CRITICAL OUTPUT REQUIREMENT:
+Your ENTIRE response must be a single valid JSON object. Do NOT use Markdown formatting, headers, or explanatory text outside the JSON. Start your response with {{ and end with }}. The system parses your response as JSON - any non-JSON content will cause parsing failures.
 """
 
     def _build_format_instructions(self, learned_rules: list[dict]) -> str:
@@ -578,7 +573,22 @@ Assessments that ignore this checklist have been rejected {self._get_rejection_c
 
     def _get_relevant_code_samples(self, context: AssessmentContext) -> str:
         """Get relevant code samples based on step type."""
-        # Define which file patterns are relevant for each step
+        # Define HIGH PRIORITY patterns (must-include) and general patterns for each step
+        step_priority_patterns = {
+            "architecture": ["route", "api", "controller", "endpoint", "server", "app.py", "app.ts",
+                           "main.py", "main.ts", "index.ts", "index.py", "database", "db", "postgres",
+                           "mongo", "redis", "schema", "model", "service", "handler"],
+            "code_quality": ["src/", "lib/", "core/", "utils/"],
+            "tech_debt": ["package.json", "requirements.txt", "pyproject.toml", "deprecated"],
+            "security": ["auth", "login", "password", "token", "secret", "credential", "session"],
+            "ux_navigation": ["router", "route", "navigation", "nav", "page", "layout"],
+            "ux_styling": ["style", "theme", "css", "scss", "tailwind"],
+            "ux_accessibility": ["aria", "a11y", "accessible"],
+            "performance": ["cache", "lazy", "bundle", "webpack", "vite"],
+            "testing": ["test", "spec", "__tests__", "pytest"],
+            "documentation": ["readme", "docs", "doc", ".md"]
+        }
+
         step_patterns = {
             "architecture": [".py", ".ts", ".js", "package.json", "pyproject.toml", "requirements.txt"],
             "code_quality": [".py", ".ts", ".tsx", ".js", ".jsx"],
@@ -592,19 +602,39 @@ Assessments that ignore this checklist have been rejected {self._get_rejection_c
             "documentation": [".md", "README", "docs", ".rst"]
         }
 
+        priority_patterns = step_priority_patterns.get(self.step_name, [])
         patterns = step_patterns.get(self.step_name, [".py", ".ts", ".js"])
 
-        # Select relevant files
-        selected_files = []
-        total_chars = 0
-        max_chars = 30000  # Limit total code size
+        # First pass: collect HIGH PRIORITY files (API, DB, etc.)
+        priority_files = []
+        general_files = []
 
         for file_path, content in context.file_contents.items():
-            # Check if file matches any pattern
-            if any(p.lower() in file_path.lower() for p in patterns):
-                if total_chars + len(content) < max_chars:
-                    selected_files.append((file_path, content))
-                    total_chars += len(content)
+            file_lower = file_path.lower()
+            is_priority = any(p.lower() in file_lower for p in priority_patterns)
+            matches_pattern = any(p.lower() in file_lower for p in patterns)
+
+            if is_priority:
+                priority_files.append((file_path, content))
+            elif matches_pattern:
+                general_files.append((file_path, content))
+
+        # Build selected files: priority first, then general
+        selected_files = []
+        total_chars = 0
+        max_chars = 50000  # Increased limit to capture more context
+
+        # Add priority files first
+        for file_path, content in priority_files:
+            if total_chars + len(content) < max_chars:
+                selected_files.append((file_path, content))
+                total_chars += len(content)
+
+        # Then add general files
+        for file_path, content in general_files:
+            if total_chars + len(content) < max_chars:
+                selected_files.append((file_path, content))
+                total_chars += len(content)
 
         if not selected_files:
             # Fallback: take representative files from the codebase
@@ -635,9 +665,15 @@ Assessments that ignore this checklist have been rejected {self._get_rejection_c
         # Format code samples
         lines = []
 
+        # Log what files are being sent (for debugging)
+        priority_count = len(priority_files)
+        print(f"  📁 {self.step_name}: Sending {len(selected_files)} files ({priority_count} priority, {total_chars} chars)")
+        if priority_files:
+            print(f"      Priority files: {[f[0] for f in selected_files[:5]]}")
+
         if no_specific_files:
-            lines.append(f"**NOTE: No files matching {self.step_name} patterns found. Using general project files for assessment.**\n")
-            lines.append(f"**For {self.step_name}, evaluate what's MISSING and recommend what SHOULD be added.**\n")
+            lines.append(f"**NOTE: Limited files available for {self.step_name} assessment.**\n")
+            lines.append(f"**Only assess issues you can prove exist in the files below. Do NOT assume missing features.**\n")
 
         for file_path, content in selected_files:
             # Truncate very long files
@@ -720,13 +756,36 @@ Assessments that ignore this checklist have been rejected {self._get_rejection_c
             rec_match = re.search(r'"recommendation"\s*:\s*"([^"]+)"', context)
             recommendation = rec_match.group(1) if rec_match else ""
 
+            # Extract additional fields if present
+            impact_match = re.search(r'"impact"\s*:\s*"([^"]+)"', context)
+            impact = impact_match.group(1) if impact_match else ""
+
+            effort_match = re.search(r'"effort_hours"\s*:\s*([0-9.]+)', context)
+            effort_hours = float(effort_match.group(1)) if effort_match else 1.0
+
+            ai_fix_match = re.search(r'"ai_can_fix"\s*:\s*(true|false)', context, re.IGNORECASE)
+            ai_can_fix = ai_fix_match.group(1).lower() == 'true' if ai_fix_match else False
+
+            ai_approach_match = re.search(r'"ai_approach"\s*:\s*"([^"]+)"', context)
+            ai_approach = ai_approach_match.group(1) if ai_approach_match else ""
+
+            idx = len(findings) + 1
             findings.append(Finding(
-                rule_id=f"ai_{self.step_name}",
+                rule_id=f"ai_{self.step_name}_{idx}",
                 rule_name=title,
                 severity=severity,
                 description=description,
                 evidence=[location] if location else [],
-                recommendation=recommendation
+                recommendation=recommendation,
+                # Additional fields
+                id=f"{self.step_name.upper()[:3]}-{idx:03d}",
+                title=title,
+                category=self.step_name,
+                location=location,
+                impact=impact,
+                effort_hours=effort_hours,
+                ai_can_fix=ai_can_fix,
+                ai_approach=ai_approach
             ))
 
         return findings
@@ -757,14 +816,23 @@ Assessments that ignore this checklist have been rejected {self._get_rejection_c
                     data = None
 
             if data:
-                for finding_data in data.get("findings", []):
+                for idx, finding_data in enumerate(data.get("findings", [])):
                     findings.append(Finding(
-                        rule_id=f"ai_{self.step_name}",
+                        rule_id=f"ai_{self.step_name}_{idx+1}",
                         rule_name=finding_data.get("title", "AI Finding"),
                         severity=finding_data.get("severity", "medium"),
                         description=finding_data.get("description", ""),
-                        evidence=[finding_data.get("location", "")],
-                        recommendation=finding_data.get("recommendation", "")
+                        evidence=[finding_data.get("location", "")] if finding_data.get("location") else [],
+                        recommendation=finding_data.get("recommendation", ""),
+                        # Additional fields
+                        id=f"{self.step_name.upper()[:3]}-{idx+1:03d}",
+                        title=finding_data.get("title", "AI Finding"),
+                        category=self.step_name,
+                        location=finding_data.get("location", ""),
+                        impact=finding_data.get("impact", ""),
+                        effort_hours=float(finding_data.get("effort_hours", 1.0)),
+                        ai_can_fix=finding_data.get("ai_can_fix", False),
+                        ai_approach=finding_data.get("ai_approach", "")
                     ))
             else:
                 # JSON parsing failed completely, use regex fallback
@@ -790,29 +858,51 @@ Assessments that ignore this checklist have been rejected {self._get_rejection_c
         import re
         result = {}
 
-        # Extract score
+        # Extract score - try JSON format first, then Markdown format
         score_match = re.search(r'"score"\s*:\s*(\d+)', response)
         if score_match:
             result['score'] = int(score_match.group(1))
+        else:
+            # Try Markdown format: **Score: 62/100** or Score: 62
+            md_score = re.search(r'\*?\*?Score:?\s*(\d+)(?:/100)?\*?\*?', response, re.IGNORECASE)
+            if md_score:
+                result['score'] = int(md_score.group(1))
 
-        # Extract summary
+        # Extract summary - try JSON format first, then Markdown
         summary_match = re.search(r'"summary"\s*:\s*"([^"]+)"', response)
         if summary_match:
             result['summary'] = summary_match.group(1)
+        else:
+            # Try Markdown: ## Summary or Executive Summary paragraph
+            md_summary = re.search(r'(?:##\s*(?:Executive\s+)?Summary|summary)[:\s]*\n+([^\n#]+)', response, re.IGNORECASE)
+            if md_summary:
+                result['summary'] = md_summary.group(1).strip()
 
-        # Extract strengths (simple list extraction)
+        # Extract strengths - try JSON format first
         strengths_match = re.search(r'"strengths"\s*:\s*\[(.*?)\]', response, re.DOTALL)
         if strengths_match:
             strengths_content = strengths_match.group(1)
             strengths = re.findall(r'"([^"]+)"', strengths_content)
-            result['strengths'] = strengths[:10]  # Limit to 10
+            result['strengths'] = strengths[:10]
+        else:
+            # Try Markdown: ## Strengths followed by list items
+            md_strengths = re.search(r'##\s*Strengths?\s*\n+((?:[-*\d.]+\s+.+\n?)+)', response, re.IGNORECASE)
+            if md_strengths:
+                items = re.findall(r'[-*\d.]+\s+\*?\*?(.+?)(?:\*?\*?)?\s*$', md_strengths.group(1), re.MULTILINE)
+                result['strengths'] = [item.strip().strip('*') for item in items[:10]]
 
-        # Extract weaknesses
+        # Extract weaknesses - try JSON format first
         weaknesses_match = re.search(r'"weaknesses"\s*:\s*\[(.*?)\]', response, re.DOTALL)
         if weaknesses_match:
             weaknesses_content = weaknesses_match.group(1)
             weaknesses = re.findall(r'"([^"]+)"', weaknesses_content)
-            result['weaknesses'] = weaknesses[:10]  # Limit to 10
+            result['weaknesses'] = weaknesses[:10]
+        else:
+            # Try Markdown: ## Weaknesses followed by list items
+            md_weaknesses = re.search(r'##\s*Weaknesses?\s*\n+((?:[-*\d.]+\s+.+\n?)+)', response, re.IGNORECASE)
+            if md_weaknesses:
+                items = re.findall(r'[-*\d.]+\s+\*?\*?(.+?)(?:\*?\*?)?\s*$', md_weaknesses.group(1), re.MULTILINE)
+                result['weaknesses'] = [item.strip().strip('*') for item in items[:10]]
 
         return result
 
@@ -852,6 +942,7 @@ Assessments that ignore this checklist have been rejected {self._get_rejection_c
 
             if data:
                 score = data.get("score", 70)
+                print(f"  📈 {self.step_name}: AI returned score={score}")
                 summary = data.get("summary", summary)
                 strengths = data.get("strengths", [])
                 weaknesses = data.get("weaknesses", [])
@@ -870,12 +961,12 @@ Assessments that ignore this checklist have been rejected {self._get_rejection_c
             strengths = metadata.get('strengths', [])
             weaknesses = metadata.get('weaknesses', [])
 
-        # Adjust score based on findings severity
-        for f in all_findings:
-            if f.severity == "critical":
-                score = min(score, 30)
-            elif f.severity == "high":
-                score = min(score, 50)
+        # Trust the AI's score completely - no adjustments
+        # The AI already sees all findings and factors them into its score
+        # Previous adjustment logic caused scores to go to 0
+
+        # Ensure score stays in valid range
+        score = max(0, min(100, score))
 
         status = self._get_status(score)
 
@@ -889,11 +980,26 @@ Assessments that ignore this checklist have been rejected {self._get_rejection_c
             weaknesses=weaknesses,
             rule_findings=rule_findings,
             ai_findings=ai_findings,
-            raw_ai_response=ai_response
+            raw_ai_response=ai_response,
+            raw_prompt=self._last_prompt
         )
 
     def _create_result_from_rules(self, rule_findings: list[Finding]) -> StepResult:
         """Create result from rules only (no AI)."""
+        # If no rules matched, return a limited result
+        if not rule_findings:
+            return StepResult(
+                step_name=self.step_name,
+                score=0,  # Indicate incomplete assessment
+                status="incomplete",
+                summary=f"No rules available for {self.step_name}. Use AI assessment for this step.",
+                findings=[],
+                strengths=[],
+                weaknesses=["No automated rules exist for this assessment category"],
+                rule_findings=[],
+                ai_findings=[]
+            )
+
         # Calculate score based on findings
         score = 80
         for f in rule_findings:
@@ -915,7 +1021,7 @@ Assessments that ignore this checklist have been rejected {self._get_rejection_c
             step_name=self.step_name,
             score=score,
             status=status,
-            summary=f"Rules-only assessment of {self.step_name}",
+            summary=f"Rules-only assessment of {self.step_name} ({len(rule_findings)} rules applied)",
             findings=rule_findings,
             strengths=[],
             weaknesses=weaknesses,
@@ -999,7 +1105,8 @@ class AICodebaseAssessor:
         mode: str = "standard",
         on_step_complete: Optional[Callable[[str, StepResult], None]] = None,
         parallel: bool = True,
-        steps: Optional[list[str]] = None
+        steps: Optional[list[str]] = None,
+        skip_lessons: bool = False
     ) -> dict[str, StepResult]:
         """
         Run all assessment steps.
@@ -1010,9 +1117,14 @@ class AICodebaseAssessor:
             on_step_complete: Callback after each step completes
             parallel: Run assessments in parallel for faster completion
             steps: Optional list of specific steps to run (default: all steps)
+            skip_lessons: If True, don't include lessons in AI prompts
         """
         use_ai = mode != "rules_only"
         steps_to_run = steps if steps else self.STEP_NAMES
+
+        # Set skip_lessons flag on all assessors
+        for assessor in self.assessors.values():
+            assessor.skip_lessons = skip_lessons
 
         if parallel:
             return await self.assess_all_parallel(context, use_ai=use_ai, on_step_complete=on_step_complete, steps=steps_to_run)
@@ -1070,12 +1182,12 @@ class AICodebaseAssessor:
             step_duration = time.time() - step_start
             print(f"   ✓ {step_name} completed in {step_duration:.1f}s (score: {result.score})", flush=True)
 
-            # Log completion event to monitor
+            # Log completion event to monitor - include prompt for visibility
             if self.audit_logger:
                 self.audit_logger.log_agent_call(
                     agent_id=f"step_{step_name}",
-                    model="claude-3-5-sonnet",
-                    input_text=f"Assessed {step_name}",
+                    model="claude-sonnet-4-5-20250929",
+                    input_text=result.raw_prompt if result.raw_prompt else f"Assessed {step_name}",
                     output_text=f"Score: {result.score}/100 - {result.summary[:200]}",
                     input_tokens=0,  # Actual tokens logged by executor
                     output_tokens=0,
